@@ -1,9 +1,5 @@
 import unittest
 
-operator_and_comma = ["+", "*", "/", "=", "-", "^", ","]
-closing_bracket = ["}", "]", ")"]
-opening_bracket = ["{", "[", "("]
-
 
 def convert_from_objects_to_string(detections: list) -> str:
     """
@@ -44,13 +40,29 @@ def can_add_multiple_operator(previous_label: str, current_label: str) -> bool:
         return False
     # if previous or current are operator or comma return false
     # Ex: '2+','-2','=2','3,'
-    if operator_and_comma.__contains__(previous_label) or operator_and_comma.__contains__(current_label):
+    if is_operators(previous_label) or is_comma(previous_label) or is_operators(current_label) or is_comma(current_label):
         return False
     # if previous is opening bracket or current is closing bracket return false
     # Ex: '2)','9}','(3','[x'
-    if closing_bracket.__contains__(current_label) or opening_bracket.__contains__(previous_label):
+    if is_closing_bracket(current_label) or is_opening_bracket(previous_label):
         return False
     return True
+
+
+def is_operators(token: str) -> bool:
+    return token in ["+", "*", "/", "=", "-", "^"]
+
+
+def is_comma(token: str) -> bool:
+    return token in [","]
+
+
+def is_closing_bracket(token: str) -> bool:
+    return token in ["}", "]", ")"]
+
+
+def is_opening_bracket(token: str) -> bool:
+    return token in ["{", "[", "("]
 
 
 class Tests(unittest.TestCase):
