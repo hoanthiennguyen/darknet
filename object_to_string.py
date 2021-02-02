@@ -46,7 +46,7 @@ def should_add_multiply_operator(previous_label: str, current_label: str) -> boo
     # "2(" => "2*("
     if previous_label.isdigit() and is_opening_bracket(current_label):
         return True
-    # "x(" => "2*("
+    # "x(" => "x*("
     if previous_label.isalpha() and is_opening_bracket(current_label):
         return True
     # ")(" => ")*("
