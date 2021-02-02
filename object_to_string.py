@@ -11,7 +11,7 @@ def convert_from_objects_to_string(detections: list) -> str:
      bbox = (x,y,w,h)
      """
     detections.sort(key=lambda x: x[2][0])
-    result = get_label(detections[0][0])
+    result = detections[0][0]
     for i in range(1, len(detections)):
         current_x, current_y, current_w, current_h = detections[i][2]
         previous_x, previous_y, previous_w, previous_h = detections[i - 1][2]
@@ -20,8 +20,8 @@ def convert_from_objects_to_string(detections: list) -> str:
         # Add pow
         if bottom_current_y <= previous_y:
             result += "^"
-        result += get_label(detections[i][0])
-    return result
+        result += detections[i][0]
+    return result.replace(".", "*")
 
 
 def normalize_polynomial(polynomial: str) -> str:
@@ -51,12 +51,6 @@ def can_add_multiple_operator(previous_label: str, current_label: str) -> bool:
     if closing_bracket.__contains__(current_label) or opening_bracket.__contains__(previous_label):
         return False
     return True
-
-
-def get_label(value: str) -> str:
-    if value == ".":
-        value = "*"
-    return value
 
 
 class Tests(unittest.TestCase):
