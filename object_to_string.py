@@ -17,7 +17,7 @@ def convert_from_objects_to_string(detections: list) -> str:
         if bottom_current_y <= previous_y:
             result += "^"
         result += detections[i][0]
-    return result.replace(".", "*")
+    return result.replace(".", "*").replace(",", ".")
 
 
 def normalize_polynomial(polynomial: str) -> str:
@@ -34,19 +34,29 @@ def normalize_polynomial(polynomial: str) -> str:
 
 
 def should_add_multiply_operator(previous_label: str, current_label: str) -> bool:
-    # If previous and current are both numbers return false
-    # Ex: '22','33','55'
-    if previous_label.isdigit() and current_label.isdigit():
-        return False
-    # if previous or current are operator or comma return false
-    # Ex: '2+','-2','=2','3,'
-    if is_operators(previous_label) or is_comma(previous_label) or is_operators(current_label) or is_comma(current_label):
-        return False
-    # if previous is opening bracket or current is closing bracket return false
-    # Ex: '2)','9}','(3','[x'
-    if is_closing_bracket(current_label) or is_opening_bracket(previous_label):
-        return False
-    return True
+    # "2x" => "2*x"
+    if previous_label.isdigit() and current_label.isalpha():
+        return True
+    # "x2" => "x*2"
+    if previous_label.isalpha() and current_label.isdigit():
+        return True
+    # "xx" => "x*x"
+    if previous_label.isalpha() and current_label.isalpha():
+        return True
+    # "2(" => "2*("
+    if previous_label.isdigit() and is_opening_bracket(current_label):
+        return True
+    # ")(" => ")*("
+    if is_closing_bracket(previous_label) and is_opening_bracket(current_label):
+        return True
+    # ")2" => ")*2"
+    if is_closing_bracket(previous_label) and current_label.isdigit():
+        return True
+    # ")x" => ")*x"
+    if is_closing_bracket(previous_label) and current_label.isalpha():
+        return True
+
+    return False
 
 
 def is_operators(token: str) -> bool:
@@ -121,7 +131,7 @@ class Tests(unittest.TestCase):
                       ("=", 0.4, (0.922508, 0.229236, 0.073932, 0.152824)),
                       ("0", 0.4, (0.978094, 0.226744, 0.043812, 0.227575)),
                       ]
-        self.assertEqual(convert_from_objects_to_string(detections), "(x+1)(x-2)*2,5-3(x^2-1)2=0")
+        self.assertEqual(convert_from_objects_to_string(detections), "(x+1)(x-2)*2.5-3(x^2-1)2=0")
 
     def test_normalize_polynomial(self):
         polynomial = "4=x^2"
@@ -135,3 +145,15 @@ class Tests(unittest.TestCase):
 
         polynomial = "(x+1)(x-2)2,5-3(x^2-1)2=0"
         self.assertEqual(normalize_polynomial(polynomial), "(x+1)*(x-2)*2,5-3*(x^2-1)*2=0")
+
+        polynomial = "(3-2x)b-3m"
+        self.assertEqual(normalize_polynomial(polynomial), "(3-2*x)*b-3*m")
+
+    def test_should_add_multiply_operator(self):
+        self.assertTrue(should_add_multiply_operator("2", "x"), True)
+        self.assertTrue(should_add_multiply_operator("x", "2"), True)
+        self.assertTrue(should_add_multiply_operator("x", "x"), True)
+        self.assertTrue(should_add_multiply_operator("2", "("), True)
+        self.assertTrue(should_add_multiply_operator(")", "("), True)
+        self.assertTrue(should_add_multiply_operator(")", "2"), True)
+        self.assertTrue(should_add_multiply_operator(")", "x"), True)
