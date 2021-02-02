@@ -27,13 +27,13 @@ def normalize_polynomial(polynomial: str) -> str:
         previous_label = polynomial[i - 1]
         # add *
         # Ex: 2x => 2*x
-        if can_add_multiple_operator(previous_label, current_label):
+        if should_add_multiply_operator(previous_label, current_label):
             result += "*"
         result += polynomial[i]
     return result
 
 
-def can_add_multiple_operator(previous_label: str, current_label: str) -> bool:
+def should_add_multiply_operator(previous_label: str, current_label: str) -> bool:
     # If previous and current are both numbers return false
     # Ex: '22','33','55'
     if previous_label.isdigit() and current_label.isdigit():
