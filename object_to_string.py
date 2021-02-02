@@ -46,6 +46,9 @@ def should_add_multiply_operator(previous_label: str, current_label: str) -> boo
     # "2(" => "2*("
     if previous_label.isdigit() and is_opening_bracket(current_label):
         return True
+    # "x(" => "2*("
+    if previous_label.isalpha() and is_opening_bracket(current_label):
+        return True
     # ")(" => ")*("
     if is_closing_bracket(previous_label) and is_opening_bracket(current_label):
         return True
@@ -146,14 +149,15 @@ class Tests(unittest.TestCase):
         polynomial = "(x+1)(x-2)2,5-3(x^2-1)2=0"
         self.assertEqual(normalize_polynomial(polynomial), "(x+1)*(x-2)*2,5-3*(x^2-1)*2=0")
 
-        polynomial = "(3-2x)b-3m"
-        self.assertEqual(normalize_polynomial(polynomial), "(3-2*x)*b-3*m")
+        polynomial = "a(3-2x)b-3m"
+        self.assertEqual(normalize_polynomial(polynomial), "a*(3-2*x)*b-3*m")
 
     def test_should_add_multiply_operator(self):
         self.assertTrue(should_add_multiply_operator("2", "x"), True)
         self.assertTrue(should_add_multiply_operator("x", "2"), True)
         self.assertTrue(should_add_multiply_operator("x", "x"), True)
         self.assertTrue(should_add_multiply_operator("2", "("), True)
+        self.assertTrue(should_add_multiply_operator("x", "("), True)
         self.assertTrue(should_add_multiply_operator(")", "("), True)
         self.assertTrue(should_add_multiply_operator(")", "2"), True)
         self.assertTrue(should_add_multiply_operator(")", "x"), True)
