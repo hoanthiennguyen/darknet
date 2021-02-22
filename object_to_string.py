@@ -1,4 +1,8 @@
 import unittest
+import re
+
+superscript_threshold = 1 / 2
+subscript_threshold = 3 / 4
 
 
 def convert_from_objects_to_string(detections: list) -> str:
@@ -8,16 +12,56 @@ def convert_from_objects_to_string(detections: list) -> str:
      """
     detections.sort(key=lambda x: x[2][0])
     result = detections[0][0]
-    for i in range(1, len(detections)):
+    length = len(detections)
+    end_of_script = 0
+    for i in range(1, length):
         current_x, current_y, current_w, current_h = detections[i][2]
         previous_x, previous_y, previous_w, previous_h = detections[i - 1][2]
         bottom_current_y = current_y + current_h / 2
-
+        top_previous_y = previous_y - previous_h / 2
         # Add pow
-        if bottom_current_y <= previous_y:
-            result += "^"
-        result += detections[i][0]
+        if i > end_of_script:
+            if bottom_current_y <= top_previous_y + previous_h * superscript_threshold:
+                script, end_of_script = get_exponent(detections, i)
+                result += f'^{script}'
+        if i > end_of_script:
+            result += detections[i][0]
     return result.replace(".", "*").replace(",", ".")
+
+
+def get_exponent(detections: list, index: int) -> (str, int):
+    script = detections[index][0]
+    end_of_script = start_of_script = index
+    end_of_superscript = index
+    length = len(detections)
+    # get subscript or superscript
+    # Ex: 2^11 => script = 11
+    while True:
+        if end_of_script >= length - 1:
+            break
+        end_of_script += 1
+        current_x, current_y, current_w, current_h = detections[end_of_script][2]
+        previous_x, previous_y, previous_w, previous_h = detections[start_of_script][2]
+        # current = detections[end_of_script][0]
+        # previous = detections[start_of_script][0]
+        top_current_y = current_y - current_h / 2
+        bottom_current_y = current_y + current_h / 2
+        top_previous_y = previous_y - previous_h / 2
+        bottom_previous_y = previous_y + previous_h / 2
+        if bottom_previous_y <= top_current_y + current_h * subscript_threshold:
+            end_of_script -= 1
+            break
+        if bottom_current_y <= top_previous_y + previous_h * superscript_threshold:
+            (superscript, end_of_superscript) = get_exponent(detections, end_of_script)
+            script += f'^{superscript}'
+            end_of_script = end_of_superscript
+        else:
+            script += detections[end_of_script][0]
+    # add () for pow, Ex x^x+1 = > x^(x+1)
+    if re.search('[+*/=-]', script):
+        script = f'({script})'
+
+    return (script, end_of_script) if end_of_script > end_of_superscript else (script, end_of_superscript)
 
 
 def normalize_polynomial(polynomial: str) -> str:
@@ -136,6 +180,90 @@ class Tests(unittest.TestCase):
                       ]
         self.assertEqual(convert_from_objects_to_string(detections), "(x+1)(x-2)*2.5-3(x^2-1)2=0")
 
+    def test_convert_from_objects_to_string_with_exponential_polynomial(self):
+        detections = [("x", 0.4, (0.138007, 0.516611, 0.147864, 0.199336)),
+                      ("1", 0.4, (0.230011, 0.382890, 0.024096, 0.234219)),
+                      ("1", 0.4, (0.261227, 0.382890, 0.030668, 0.237542)),
+                      ("+", 0.4, (0.343373, 0.524917, 0.043812, 0.156146)),
+                      ("2", 0.4, (0.426068, 0.502492, 0.044907, 0.297342)),
+                      ("x", 0.4, (0.484392, 0.566445, 0.038883, 0.199336)),
+                      ("x", 0.4, (0.543264, 0.417774, 0.040526, 0.137874)),
+                      ("+", 0.4, (0.606243, 0.421927, 0.037240, 0.106312)),
+                      ("1", 0.4, (0.661008, 0.418605, 0.040526, 0.205980))
+                      ]
+        self.assertEqual(convert_from_objects_to_string(detections), "x^11+2x^(x+1)")
+
+        detections = [("x", 0.4, (0.138007, 0.516611, 0.147864, 0.199336)),
+                      ("1", 0.4, (0.230011, 0.382890, 0.024096, 0.234219)),
+                      ("1", 0.4, (0.261227, 0.382890, 0.030668, 0.237542)),
+                      ("+", 0.4, (0.343373, 0.524917, 0.043812, 0.156146)),
+                      ("2", 0.4, (0.426068, 0.502492, 0.044907, 0.297342)),
+                      ("x", 0.4, (0.484392, 0.566445, 0.038883, 0.199336)),
+                      ("x", 0.4, (0.543264, 0.417774, 0.040526, 0.137874)),
+                      ("+", 0.4, (0.606243, 0.421927, 0.037240, 0.106312)),
+                      ("1", 0.4, (0.661008, 0.418605, 0.040526, 0.205980)),
+                      ("+", 0.4, (0.720975, 0.539867, 0.042169, 0.156146)),
+                      ("2", 0.4, (0.795728, 0.510797, 0.049288, 0.284053)),
+                      ("2", 0.4, (0.853231, 0.343023, 0.030668, 0.167774)),
+                      ("2", 0.4, (0.889376, 0.235050, 0.021906, 0.147841))
+                      ]
+        self.assertEqual(convert_from_objects_to_string(detections), "x^11+2x^(x+1)+2^2^2")
+
+        detections = [("x", 0.4, (0.138007, 0.516611, 0.147864, 0.199336)),
+                      ("1", 0.4, (0.230011, 0.382890, 0.024096, 0.234219)),
+                      ("1", 0.4, (0.261227, 0.382890, 0.030668, 0.237542)),
+                      ("+", 0.4, (0.360350, 0.501661, 0.072289, 0.149502)),
+                      ("x", 0.4, (0.455641, 0.493355, 0.082147, 0.139535)),
+                      ("x", 0.4, (0.512596, 0.400332, 0.036145, 0.099668)),
+                      ("2", 0.4, (0.545181, 0.352159, 0.031216, 0.093023)),
+                      ("+", 0.4, (0.581599, 0.380399, 0.027382, 0.076412)),
+                      ("2", 0.4, (0.612815, 0.376246, 0.029573, 0.111296)),
+                      ("x", 0.4, (0.641292, 0.403654, 0.031763, 0.083056)),
+                      ("+", 0.4, (0.672234, 0.389535, 0.032311, 0.071429)),
+                      ("1", 0.4, (0.699069, 0.382890, 0.014786, 0.114618)),
+                      ]
+        self.assertEqual(convert_from_objects_to_string(detections), "x^11+x^(x^2+2x+1)")
+
+        detections = [
+            ("x", 0.4, (0.455641, 0.493355, 0.082147, 0.139535)),
+            ("x", 0.4, (0.512596, 0.400332, 0.036145, 0.099668)),
+            ("2", 0.4, (0.544907, 0.342193, 0.030668, 0.112957)),
+            ("+", 0.4, (0.582968, 0.381229, 0.024644, 0.074751)),
+            ("2", 0.4, (0.612815, 0.376246, 0.029573, 0.111296)),
+            ("x", 0.4, (0.641292, 0.403654, 0.031763, 0.083056)),
+            ("+", 0.4, (0.672234, 0.389535, 0.032311, 0.071429)),
+            ("1", 0.4, (0.699069, 0.382890, 0.014786, 0.114618)),
+        ]
+        self.assertEqual(convert_from_objects_to_string(detections), "x^(x^2+2x+1)")
+
+        detections = [
+            ("x", 0.4, (0.041895, 0.427741, 0.050931, 0.121262)),
+            ("y", 0.4, (0.092552, 0.338040, 0.043812, 0.091362)),
+            ("z", 0.4, (0.127327, 0.275748, 0.035597, 0.093023)),
+            ("+", 0.4, (0.160460, 0.274917, 0.024096, 0.078073)),
+            ("2", 0.4, (0.188938, 0.257475, 0.027382, 0.099668)),
+            ("-", 0.4, (0.236857, 0.317276, 0.031216, 0.066445)),
+            ("3", 0.4, (0.275465, 0.316445, 0.041621, 0.124585)),
+            ("+", 0.4, (0.321742, 0.308970, 0.046550, 0.109635)),
+            ("3", 0.4, (0.368291, 0.313953, 0.038883, 0.156146)),
+            ("x", 0.4, (0.406900, 0.344684, 0.042716, 0.114618)),
+        ]
+        self.assertEqual(convert_from_objects_to_string(detections), "x^(y^(z+2)-3+3x)")
+
+        detections = [
+            ("x", 0.4, (0.180997, 0.372924, 0.081599, 0.167774)),
+            ("y", 0.4, (0.242881, 0.265781, 0.033406, 0.146179)),
+            ("2", 0.4, (0.270537, 0.161130, 0.031763, 0.102990)),
+            ("+", 0.4, (0.306681, 0.242525, 0.032859, 0.059801)),
+            ("3", 0.4, (0.354053, 0.211794, 0.043264, 0.134551)),
+            ("y", 0.4, (0.398686, 0.247508, 0.027382, 0.119601)),
+            ("+", 0.4, (0.432640, 0.240033, 0.027382, 0.091362)),
+            ("1", 0.4, (0.466867, 0.216777, 0.025739, 0.124585)),
+            ("-", 0.4, (0.504929, 0.361296, 0.040526, 0.048173)),
+            ("3", 0.4, (0.561062, 0.348837, 0.044359, 0.146179)),
+        ]
+        self.assertEqual(convert_from_objects_to_string(detections), "x^(y^2+3y+1)-3")
+
     def test_normalize_polynomial(self):
         polynomial = "4=x^2"
         self.assertEqual(normalize_polynomial(polynomial), "4=x^2")
@@ -161,3 +289,25 @@ class Tests(unittest.TestCase):
         self.assertTrue(should_add_multiply_operator(")", "("))
         self.assertTrue(should_add_multiply_operator(")", "2"))
         self.assertTrue(should_add_multiply_operator(")", "x"))
+
+    def test_get_exponent(self):
+        detections = [
+            ("x", 0.4, (0.118291, 0.325581, 0.058050, 0.116279)),
+            ("1", 0.4, (0.152793, 0.239203, 0.018620, 0.116279)),
+            ("2", 0.4, (0.181271, 0.235050, 0.033954, 0.114618)),
+        ]
+        self.assertEqual(get_exponent(detections, 1), ("12", 2))
+
+        detections = [
+            ("x", 0.4, (0.180997, 0.372924, 0.081599, 0.167774)),
+            ("y", 0.4, (0.242881, 0.265781, 0.033406, 0.146179)),
+            ("2", 0.4, (0.270537, 0.161130, 0.031763, 0.102990)),
+            ("+", 0.4, (0.306681, 0.242525, 0.032859, 0.059801)),
+            ("3", 0.4, (0.354053, 0.211794, 0.043264, 0.134551)),
+            ("y", 0.4, (0.398686, 0.247508, 0.027382, 0.119601)),
+            ("+", 0.4, (0.432640, 0.240033, 0.027382, 0.091362)),
+            ("1", 0.4, (0.466867, 0.216777, 0.025739, 0.124585)),
+            ("-", 0.4, (0.504929, 0.361296, 0.040526, 0.048173)),
+            ("3", 0.4, (0.561062, 0.348837, 0.044359, 0.146179)),
+        ]
+        self.assertEqual(get_exponent(detections, 1), ("(y^2+3y+1)", 7))
