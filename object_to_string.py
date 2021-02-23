@@ -3,6 +3,7 @@ import re
 
 superscript_threshold = 1 / 2
 subscript_threshold = 3 / 4
+left_and_right_threshold = 1 / 4
 
 
 def convert_from_objects_to_string(detections: list) -> str:
@@ -10,22 +11,23 @@ def convert_from_objects_to_string(detections: list) -> str:
      detections : list of detection = [(label, confidence, bbox)]
      bbox = (x,y,w,h)
      """
-    detections.sort(key=lambda x: x[2][0])
+    detections.sort(key=lambda x: [x[2][0], x[2][1]])
     result = detections[0][0]
     length = len(detections)
     end_of_script = 0
     for i in range(1, length):
         current_x, current_y, current_w, current_h = detections[i][2]
         previous_x, previous_y, previous_w, previous_h = detections[i - 1][2]
-        bottom_current_y = current_y + current_h / 2
-        top_previous_y = previous_y - previous_h / 2
+        bottom_current = current_y + current_h / 2
+        top_previous = previous_y - previous_h / 2
         # Add pow
         if i > end_of_script:
-            if bottom_current_y <= top_previous_y + previous_h * superscript_threshold:
+            if bottom_current <= top_previous + previous_h * superscript_threshold:
                 script, end_of_script = get_exponent(detections, i)
                 result += f'^{script}'
         if i > end_of_script:
             result += detections[i][0]
+
     return result.replace(".", "*").replace(",", ".")
 
 
@@ -44,14 +46,14 @@ def get_exponent(detections: list, index: int) -> (str, int):
         previous_x, previous_y, previous_w, previous_h = detections[start_of_script][2]
         # current = detections[end_of_script][0]
         # previous = detections[start_of_script][0]
-        top_current_y = current_y - current_h / 2
-        bottom_current_y = current_y + current_h / 2
-        top_previous_y = previous_y - previous_h / 2
-        bottom_previous_y = previous_y + previous_h / 2
-        if bottom_previous_y <= top_current_y + current_h * subscript_threshold:
+        top_current = current_y - current_h / 2
+        bottom_current = current_y + current_h / 2
+        top_previous = previous_y - previous_h / 2
+        bottom_previous = previous_y + previous_h / 2
+        if bottom_previous <= top_current + current_h * subscript_threshold:
             end_of_script -= 1
             break
-        if bottom_current_y <= top_previous_y + previous_h * superscript_threshold:
+        if bottom_current <= top_previous + previous_h * superscript_threshold:
             (superscript, end_of_superscript) = get_exponent(detections, end_of_script)
             script += f'^{superscript}'
             end_of_script = end_of_superscript
@@ -120,6 +122,53 @@ def is_closing_bracket(token: str) -> bool:
 
 def is_opening_bracket(token: str) -> bool:
     return token in ["{", "[", "("]
+
+
+def get_all_fractions(detections: list) -> list:
+    length = len(detections)
+    list_fractions = []
+    for i in range(0, length):
+        label = detections[i][0]
+        if label == '-':
+            numerator, denominator, list_ignore_index = get_all_numerator_and_denominator(detections, i)
+            if numerator != '':
+                fraction = f'{numerator}/{denominator}'
+                list_fractions.append((fraction, min(list_ignore_index), max(list_ignore_index)))
+    return list_fractions
+
+
+def get_all_numerator_and_denominator(detections: list, index_of_fraction_sign: int) -> (str, str, list):
+    length = len(detections)
+    fraction_sign_x, fraction_sign_y, fraction_sign_w, fraction_sign_h = detections[index_of_fraction_sign][2]
+    left_fraction_sign = fraction_sign_x - fraction_sign_w / 2
+    right_fraction_sign = fraction_sign_x + fraction_sign_w / 2
+
+    numerator = ""
+    denominator = ""
+    numerator_detections = []
+    denominator_detections = []
+    list_index_of_fraction = []
+    for i in range(0, length):
+        if i != detections:
+            current_x, current_y, current_w, current_h = detections[i][2]
+            if current_y < fraction_sign_y and left_fraction_sign <= current_x <= right_fraction_sign:
+                numerator_detections.append(detections[i])
+                list_index_of_fraction.append(i)
+
+            if current_y > fraction_sign_y and left_fraction_sign <= current_x <= right_fraction_sign:
+                denominator_detections.append(detections[i])
+                list_index_of_fraction.append(i)
+
+    if len(numerator_detections) != 0 and len(denominator_detections) != 0:
+        numerator = convert_from_objects_to_string(numerator_detections)
+        denominator = convert_from_objects_to_string(denominator_detections)
+
+    if re.search('[+*/=^-]', numerator):
+        numerator = f'({numerator})'
+
+    if re.search('[+*/=^-]', denominator):
+        denominator = f'({denominator})'
+    return numerator, denominator, list_index_of_fraction
 
 
 class Tests(unittest.TestCase):
@@ -311,3 +360,45 @@ class Tests(unittest.TestCase):
             ("3", 0.4, (0.561062, 0.348837, 0.044359, 0.146179)),
         ]
         self.assertEqual(get_exponent(detections, 1), ("(y^2+3y+1)", 7))
+
+    def test_get_all_numerator(self):
+        detections = [
+            ("1", 0.4, (0.065308, 0.124321, 0.031348, 0.094463)),
+            ("-", 0.4, (0.073145, 0.179696, 0.060606, 0.016287)),
+            ("2", 0.4, (0.073406, 0.228556, 0.040230, 0.066232)),
+            ("x", 0.4, (0.144462, 0.185125, 0.046499, 0.066232)),
+            ("2", 0.4, (0.189655, 0.143865, 0.036573, 0.064061)),
+            ("-", 0.4, (0.238245, 0.193811, 0.034483, 0.040174)),
+            ("1", 0.4, (0.297806, 0.190554, 0.020899, 0.094463)),
+            ("+", 0.4, (0.348746, 0.192182, 0.049634, 0.089034)),
+            ("x", 0.4, (0.428945, 0.122150, 0.045977, 0.051031)),
+            ("-", 0.4, (0.437827, 0.173724, 0.107628, 0.032573)),
+            ("3", 0.4, (0.437565, 0.247557, 0.048589, 0.102063)),
+            ("2", 0.4, (0.467085, 0.096091, 0.036573, 0.051031)),
+        ]
+        detections.sort(key=lambda x: x[2][0])
+
+        self.assertEqual(get_all_numerator_and_denominator(detections, 1), ("1", "2", [0, 2]))
+
+        self.assertEqual(get_all_numerator_and_denominator(detections, 5), ("", "", []))
+
+        self.assertEqual(get_all_numerator_and_denominator(detections, 10), ("(x^2)", "3", [8, 9, 11]))
+
+    def test_get_all_fractions(self):
+        detections = [
+            ("1", 0.4, (0.065308, 0.124321, 0.031348, 0.094463)),
+            ("-", 0.4, (0.073145, 0.179696, 0.060606, 0.016287)),
+            ("2", 0.4, (0.073406, 0.228556, 0.040230, 0.066232)),
+            ("x", 0.4, (0.144462, 0.185125, 0.046499, 0.066232)),
+            ("2", 0.4, (0.189655, 0.143865, 0.036573, 0.064061)),
+            ("-", 0.4, (0.238245, 0.193811, 0.034483, 0.040174)),
+            ("1", 0.4, (0.297806, 0.190554, 0.020899, 0.094463)),
+            ("+", 0.4, (0.348746, 0.192182, 0.049634, 0.089034)),
+            ("x", 0.4, (0.428945, 0.122150, 0.045977, 0.051031)),
+            ("-", 0.4, (0.437827, 0.173724, 0.107628, 0.032573)),
+            ("3", 0.4, (0.437565, 0.247557, 0.048589, 0.102063)),
+            ("2", 0.4, (0.467085, 0.096091, 0.036573, 0.051031)),
+        ]
+        detections.sort(key=lambda x: x[2][0])
+
+        self.assertEqual(get_all_fractions(detections), [("1/2", 0, 2), ("(x^2)/3", 8, 11)])
