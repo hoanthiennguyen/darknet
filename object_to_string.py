@@ -9,24 +9,42 @@ left_and_right_threshold = 1 / 4
 def convert_from_objects_to_string(detections: list) -> str:
     """
      detections : list of detection = [(label, confidence, bbox)]
-     bbox = (x,y,w,h)
+     bbox = (center_x,center_y,w,h)
      """
-    detections.sort(key=lambda x: [x[2][0], x[2][1]])
-    result = detections[0][0]
+    detections.sort(key=lambda x: x[2][0] - x[2][2] / 2)
+    list_all_fraction = get_all_fractions(detections)
+    result = ""
     length = len(detections)
     end_of_script = 0
-    for i in range(1, length):
-        current_x, current_y, current_w, current_h = detections[i][2]
-        previous_x, previous_y, previous_w, previous_h = detections[i - 1][2]
-        bottom_current = current_y + current_h / 2
-        top_previous = previous_y - previous_h / 2
-        # Add pow
-        if i > end_of_script:
-            if bottom_current <= top_previous + previous_h * superscript_threshold:
-                script, end_of_script = get_exponent(detections, i)
-                result += f'^{script}'
-        if i > end_of_script:
-            result += detections[i][0]
+    end_of_fraction = -1
+    for i in range(0, length):
+        if i > end_of_fraction:
+            fraction = next((x for x in list_all_fraction if x[1] == i), [])
+            if fraction:
+                result += fraction[0]
+                end_of_fraction = fraction[2]
+            else:
+                if i != 0:
+                    if i != end_of_fraction + 1:
+                        current_x, current_y, current_w, current_h = detections[i][2]
+                        previous_x, previous_y, previous_w, previous_h = detections[i - 1][2]
+                        bottom_current = current_y + current_h / 2
+                        top_previous = previous_y - previous_h / 2
+                        # Add pow
+                        if i > end_of_script:
+                            if bottom_current <= top_previous + previous_h * superscript_threshold:
+                                script, end_of_script = get_exponent(detections, i)
+                                # Except -^2
+                                if not is_operators(detections[i - 1][0]):
+                                    result += f'^{script}'
+                                else:
+                                    result += script
+                        if i > end_of_script:
+                            result += detections[i][0]
+                    else:
+                        result += detections[i][0]
+                else:
+                    result = detections[0][0]
 
     return result.replace(".", "*").replace(",", ".")
 
@@ -132,7 +150,7 @@ def get_all_fractions(detections: list) -> list:
         if label == '-':
             numerator, denominator, list_ignore_index = get_all_numerator_and_denominator(detections, i)
             if numerator != '':
-                fraction = f'{numerator}/{denominator}'
+                fraction = f'({numerator}/{denominator})'
                 list_fractions.append((fraction, min(list_ignore_index), max(list_ignore_index)))
     return list_fractions
 
@@ -147,9 +165,9 @@ def get_all_numerator_and_denominator(detections: list, index_of_fraction_sign: 
     denominator = ""
     numerator_detections = []
     denominator_detections = []
-    list_index_of_fraction = []
+    list_index_of_fraction = [index_of_fraction_sign]
     for i in range(0, length):
-        if i != detections:
+        if i != index_of_fraction_sign:
             current_x, current_y, current_w, current_h = detections[i][2]
             if current_y < fraction_sign_y and left_fraction_sign <= current_x <= right_fraction_sign:
                 numerator_detections.append(detections[i])
@@ -172,6 +190,50 @@ def get_all_numerator_and_denominator(detections: list, index_of_fraction_sign: 
 
 
 class Tests(unittest.TestCase):
+
+    def test_convert_from_object_to_string_fractions(self):
+        # detections = [
+        #     ("1", 0.4, (0.065308, 0.124321, 0.031348, 0.094463)),
+        #     ("-", 0.4, (0.073145, 0.179696, 0.060606, 0.016287)),
+        #     ("2", 0.4, (0.073406, 0.228556, 0.040230, 0.066232)),
+        #     ("x", 0.4, (0.144462, 0.185125, 0.046499, 0.066232)),
+        #     ("2", 0.4, (0.189655, 0.143865, 0.036573, 0.064061)),
+        #     ("-", 0.4, (0.238245, 0.193811, 0.034483, 0.040174)),
+        #     ("1", 0.4, (0.297806, 0.190554, 0.020899, 0.094463)),
+        #     ("+", 0.4, (0.348746, 0.192182, 0.049634, 0.089034)),
+        #     ("x", 0.4, (0.428945, 0.122150, 0.045977, 0.051031)),
+        #     ("-", 0.4, (0.437827, 0.173724, 0.107628, 0.032573)),
+        #     ("3", 0.4, (0.437565, 0.247557, 0.048589, 0.102063)),
+        #     ("2", 0.4, (0.467085, 0.096091, 0.036573, 0.051031)),
+        # ]
+        # self.assertEqual(convert_from_objects_to_string(detections), "(1/2)x^2-1+((x^2)/3)")
+
+        detections = [
+            ("x", 0.4, (0.022205, 0.132465, 0.031870, 0.056460)),
+            ("2", 0.4, (0.042059, 0.095548, 0.013062, 0.043431)),
+            ("2", 0.4, (0.084117, 0.207926, 0.032393, 0.079262)),
+            ("+", 0.4, (0.052508, 0.141694, 0.014107, 0.038002)),
+            ("-", 0.4, (0.090125, 0.146580, 0.046499, 0.017372)),
+            ("1", 0.4, (0.093783, 0.090662, 0.020376, 0.077090)),
+            ("x", 0.4, (0.146813, 0.135722, 0.040752, 0.060803)),
+            ("-", 0.4, (0.217346, 0.137351, 0.033438, 0.022801)),
+            ("x", 0.4, (0.307732, 0.080347, 0.031348, 0.049946)),
+            ("2", 0.4, (0.330460, 0.046688, 0.014107, 0.039088)),
+            ("3", 0.4, (0.308255, 0.192725, 0.029258, 0.053203)),
+            ("2", 0.4, (0.306949, 0.265472, 0.028736, 0.057546)),
+            ("-", 0.4, (0.307210, 0.227470, 0.039707, 0.018458)),
+            ("x", 0.4, (0.355016, 0.223670, 0.022466, 0.039088)),
+            ("3", 0.4, (0.372257, 0.194897, 0.016196, 0.044517)),
+            ("-", 0.4, (0.405956, 0.220413, 0.020899, 0.010858)),
+            ("1", 0.4, (0.432602, 0.210098, 0.011494, 0.053203)),
+            ("-", 0.4, (0.373041, 0.141694, 0.201672, 0.022801)),
+            ("+", 0.4, (0.372780, 0.080347, 0.038140, 0.049946)),
+            ("1", 0.4, (0.410136, 0.045603, 0.010449, 0.049946)),
+            ("x", 0.4, (0.411703, 0.102063, 0.018809, 0.032573)),
+            ("-", 0.4, (0.413532, 0.075461, 0.021421, 0.009772)),
+            ("x", 0.4, (0.439133, 0.069490, 0.022466, 0.032573)),
+        ]
+        self.assertEqual(convert_from_objects_to_string(detections), "x^2+(1/2)x-((x^2+(1/x)x)/((3/2)x^3-1))")
 
     def test_convert_from_objects_to_string(self):
         detections = [("=", 0.4, (0.398438, 0.509766, 0.312500, 0.097656)),
@@ -329,6 +391,9 @@ class Tests(unittest.TestCase):
         polynomial = "a(3-2x)b-3m"
         self.assertEqual(normalize_polynomial(polynomial), "a*(3-2*x)*b-3*m")
 
+        polynomial = "(1/2)x^2-1+((x^2)/3)"
+        self.assertEqual(normalize_polynomial(polynomial), "(1/2)*x^2-1+((x^2)/3)")
+
     def test_should_add_multiply_operator(self):
         self.assertTrue(should_add_multiply_operator("2", "x"))
         self.assertTrue(should_add_multiply_operator("x", "2"))
@@ -376,13 +441,43 @@ class Tests(unittest.TestCase):
             ("3", 0.4, (0.437565, 0.247557, 0.048589, 0.102063)),
             ("2", 0.4, (0.467085, 0.096091, 0.036573, 0.051031)),
         ]
-        detections.sort(key=lambda x: x[2][0])
+        detections.sort(key=lambda x: x[2][0] - x[2][2] / 2)
 
-        self.assertEqual(get_all_numerator_and_denominator(detections, 1), ("1", "2", [0, 2]))
+        self.assertEqual(get_all_numerator_and_denominator(detections, 0), ("1", "2", [0, 1, 2]))
 
-        self.assertEqual(get_all_numerator_and_denominator(detections, 5), ("", "", []))
+        self.assertEqual(get_all_numerator_and_denominator(detections, 5), ("", "", [5]))
 
-        self.assertEqual(get_all_numerator_and_denominator(detections, 10), ("(x^2)", "3", [8, 9, 11]))
+        self.assertEqual(get_all_numerator_and_denominator(detections, 8), ("(x^2)", "3", [8, 9, 10, 11]))
+
+        detections = [
+            ("x", 0.4, (0.022205, 0.132465, 0.031870, 0.056460)),
+            ("2", 0.4, (0.042059, 0.095548, 0.013062, 0.043431)),
+            ("2", 0.4, (0.084117, 0.207926, 0.032393, 0.079262)),
+            ("+", 0.4, (0.052508, 0.141694, 0.014107, 0.038002)),
+            ("-", 0.4, (0.090125, 0.146580, 0.046499, 0.017372)),
+            ("1", 0.4, (0.093783, 0.090662, 0.020376, 0.077090)),
+            ("x", 0.4, (0.146813, 0.135722, 0.040752, 0.060803)),
+            ("-", 0.4, (0.217346, 0.137351, 0.033438, 0.022801)),
+            ("x", 0.4, (0.307732, 0.080347, 0.031348, 0.049946)),
+            ("2", 0.4, (0.330460, 0.046688, 0.014107, 0.039088)),
+            ("3", 0.4, (0.308255, 0.192725, 0.029258, 0.053203)),
+            ("2", 0.4, (0.306949, 0.265472, 0.028736, 0.057546)),
+            ("-", 0.4, (0.307210, 0.227470, 0.039707, 0.018458)),
+            ("x", 0.4, (0.355016, 0.223670, 0.022466, 0.039088)),
+            ("3", 0.4, (0.372257, 0.194897, 0.016196, 0.044517)),
+            ("-", 0.4, (0.405956, 0.220413, 0.020899, 0.010858)),
+            ("1", 0.4, (0.432602, 0.210098, 0.011494, 0.053203)),
+            ("-", 0.4, (0.373041, 0.141694, 0.201672, 0.022801)),
+            ("+", 0.4, (0.372780, 0.080347, 0.038140, 0.049946)),
+            ("1", 0.4, (0.410136, 0.045603, 0.010449, 0.049946)),
+            ("x", 0.4, (0.411703, 0.102063, 0.018809, 0.032573)),
+            ("-", 0.4, (0.413532, 0.075461, 0.021421, 0.009772)),
+            ("x", 0.4, (0.439133, 0.069490, 0.022466, 0.032573)),
+        ]
+        detections.sort(key=lambda x: x[2][0] - x[2][2] / 2)
+
+        self.assertEqual(get_all_numerator_and_denominator(detections, 8),
+                         ("(x^2+(1/x)x)", "((3/2)x^3-1)", [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22]))
 
     def test_get_all_fractions(self):
         detections = [
@@ -399,6 +494,6 @@ class Tests(unittest.TestCase):
             ("3", 0.4, (0.437565, 0.247557, 0.048589, 0.102063)),
             ("2", 0.4, (0.467085, 0.096091, 0.036573, 0.051031)),
         ]
-        detections.sort(key=lambda x: x[2][0])
+        detections.sort(key=lambda x: x[2][0] - x[2][2] / 2)
 
-        self.assertEqual(get_all_fractions(detections), [("1/2", 0, 2), ("(x^2)/3", 8, 11)])
+        self.assertEqual(get_all_fractions(detections), [("(1/2)", 0, 2), ("((x^2)/3)", 8, 11)])
