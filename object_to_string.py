@@ -59,11 +59,46 @@ def convert_from_objects_to_string(detections: list) -> str:
     return result.replace(".", "*").replace(",", ".")
 
 
+# def get_exponent(detections: list, index: int) -> (str, int):
+#     script = detections[index][0]
+#     end_of_script = start_of_script = index
+#     end_of_superscript = index
+#     length = len(detections)
+#     # get subscript or superscript
+#     # Ex: 2^11 => script = 11
+#     while True:
+#         if end_of_script >= length - 1:
+#             break
+#         end_of_script += 1
+#         current_x, current_y, current_w, current_h = detections[end_of_script][2]
+#         previous_x, previous_y, previous_w, previous_h = detections[start_of_script][2]
+#         # current = detections[end_of_script][0]
+#         # previous = detections[start_of_script][0]
+#         top_current = current_y - current_h / 2
+#         bottom_current = current_y + current_h / 2
+#         top_previous = previous_y - previous_h / 2
+#         bottom_previous = previous_y + previous_h / 2
+#         if bottom_previous <= top_current + current_h * subscript_threshold:
+#             end_of_script -= 1
+#             break
+#         if bottom_current <= top_previous + previous_h * superscript_threshold:
+#             (superscript, end_of_superscript) = get_exponent(detections, end_of_script)
+#             # add () for exponent, Ex x^x+1 = > x^(x+1)
+#             if re.search('[+*/=-]', superscript):
+#                 superscript = f'({superscript})'
+#             script += f'^{superscript}'
+#             end_of_script = end_of_superscript
+#         else:
+#             script += detections[end_of_script][0]
+#
+#     return (script, end_of_script) if end_of_script > end_of_superscript else (script, end_of_superscript)
+
+
 def get_exponent(detections: list, index: int) -> (str, int):
-    script = detections[index][0]
+
     end_of_script = start_of_script = index
-    end_of_superscript = index
     length = len(detections)
+    list_exponent = [detections[index]]
     # get subscript or superscript
     # Ex: 2^11 => script = 11
     while True:
@@ -75,23 +110,14 @@ def get_exponent(detections: list, index: int) -> (str, int):
         # current = detections[end_of_script][0]
         # previous = detections[start_of_script][0]
         top_current = current_y - current_h / 2
-        bottom_current = current_y + current_h / 2
-        top_previous = previous_y - previous_h / 2
         bottom_previous = previous_y + previous_h / 2
         if bottom_previous <= top_current + current_h * subscript_threshold:
             end_of_script -= 1
             break
-        if bottom_current <= top_previous + previous_h * superscript_threshold:
-            (superscript, end_of_superscript) = get_exponent(detections, end_of_script)
-            # add () for exponent, Ex x^x+1 = > x^(x+1)
-            if re.search('[+*/=-]', superscript):
-                superscript = f'({superscript})'
-            script += f'^{superscript}'
-            end_of_script = end_of_superscript
-        else:
-            script += detections[end_of_script][0]
+        list_exponent.append(detections[end_of_script])
 
-    return (script, end_of_script) if end_of_script > end_of_superscript else (script, end_of_superscript)
+    script = convert_from_objects_to_string(list_exponent)
+    return script, end_of_script
 
 
 def normalize_polynomial(polynomial: str) -> str:
