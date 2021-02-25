@@ -38,9 +38,14 @@ def convert_from_objects_to_string(detections: list) -> str:
                         # Add pow
                         if i > end_of_script:
                             if bottom_current <= top_previous + previous_h * superscript_threshold:
+                                # get exponent
                                 script, end_of_script = get_exponent(detections, i)
+
                                 # Except -^2
                                 if not is_operators(detections[i - 1][0]):
+                                    # add () for exponent, Ex x^x+1 = > x^(x+1)
+                                    if re.search('[+*/=-]', script):
+                                        script = f'({script})'
                                     result += f'^{script}'
                                 else:
                                     result += script
@@ -78,13 +83,13 @@ def get_exponent(detections: list, index: int) -> (str, int):
             break
         if bottom_current <= top_previous + previous_h * superscript_threshold:
             (superscript, end_of_superscript) = get_exponent(detections, end_of_script)
+            # add () for exponent, Ex x^x+1 = > x^(x+1)
+            if re.search('[+*/=-]', superscript):
+                superscript = f'({superscript})'
             script += f'^{superscript}'
             end_of_script = end_of_superscript
         else:
             script += detections[end_of_script][0]
-    # add () for pow, Ex x^x+1 = > x^(x+1)
-    if re.search('[+*/=-]', script):
-        script = f'({script})'
 
     return (script, end_of_script) if end_of_script > end_of_superscript else (script, end_of_superscript)
 
@@ -138,6 +143,8 @@ def should_add_bracket(left_token: str, right_token: str) -> bool:
         return True
     if is_opening_bracket(right_token):
         return True
+    if is_closing_bracket(left_token):
+        return True
     if left_token in [":", "/"]:
         return True
 
@@ -165,6 +172,7 @@ def get_all_fractions(detections: list) -> list:
     list_fractions = []
     list_unique_min_index = []
     removed_list = []
+    # get all fraction by '-' token
     for i in range(0, length):
         label = detections[i][0]
         if label == '-':
@@ -173,6 +181,7 @@ def get_all_fractions(detections: list) -> list:
                 fraction = f'{numerator}/{denominator}'
                 list_fractions.append((fraction, min_index, max_index))
 
+    # add the sub fraction in supper fraction to removed_list
     for item in list_fractions:
         if item not in removed_list:
             between_item = []
@@ -180,17 +189,12 @@ def get_all_fractions(detections: list) -> list:
                 if item[1] <= x[1] and x[2] <= item[2] and x not in removed_list and x != item:
                     between_item.append(x)
             removed_list = removed_list + between_item
+
+    # remove fraction in removed_list
     for item in list_fractions:
         if item not in removed_list:
             list_unique_min_index.append(item)
-    # for item in list_fractions:
-    #     first_duplicate_min_index = (x for x in list_unique_min_index if x[1] <= item[1] and x[2] >= item[2])
-    #     if first_duplicate_min_index:
-    #         if item[2] > first_duplicate_min_index[2]:
-    #             list_unique_min_index = list_unique_min_index - first_duplicate_min_index
-    #             list_unique_min_index.append(item)
-    #     else:
-    #         list_unique_min_index.append(item)
+
     return list_unique_min_index
 
 
@@ -398,6 +402,68 @@ class Tests(unittest.TestCase):
 
         self.assertEqual(convert_from_objects_to_string(detections), "m/(x/2)")
 
+        detections = [
+            ("m", 0.4, (0.127482, 0.135722, 0.052247, 0.036916)),
+            ("x", 0.4, (0.197231, 0.090119, 0.047544, 0.056460)),
+            ("-", 0.4, (0.193312, 0.139522, 0.077325, 0.031488)),
+            ("2", 0.4, (0.189916, 0.204669, 0.062173, 0.092291)),
+            (".", 0.4, (0.150731, 0.134093, 0.004702, 0.046688)),
+        ]
+
+        self.assertEqual(convert_from_objects_to_string(detections), "m*x/2")
+
+        detections = [
+            ("m", 0.4, (0.127482, 0.135722, 0.052247, 0.036916)),
+            ("x", 0.4, (0.197231, 0.090119, 0.047544, 0.056460)),
+            ("-", 0.4, (0.214995, 0.138979, 0.120690, 0.030402)),
+            ("2", 0.4, (0.189916, 0.204669, 0.062173, 0.092291)),
+            (".", 0.4, (0.150731, 0.134093, 0.004702, 0.046688)),
+            ("+", 0.4, (0.234065, 0.092834, 0.013584, 0.038002)),
+            ("7", 0.4, (0.254702, 0.093377, 0.014107, 0.0521172)),
+        ]
+
+        self.assertEqual(convert_from_objects_to_string(detections), "m*(x+7)/2")
+
+        detections = [
+            ("m", 0.4, (0.127482, 0.135722, 0.052247, 0.036916)),
+            ("x", 0.4, (0.197231, 0.090119, 0.047544, 0.056460)),
+            ("-", 0.4, (0.214995, 0.138979, 0.120690, 0.030402)),
+            ("2", 0.4, (0.189916, 0.204669, 0.062173, 0.092291)),
+            (":", 0.4, (0.150731, 0.134093, 0.004702, 0.046688)),
+            ("+", 0.4, (0.234065, 0.092834, 0.013584, 0.038002)),
+            ("7", 0.4, (0.254702, 0.093377, 0.014107, 0.0521172)),
+        ]
+
+        self.assertEqual(convert_from_objects_to_string(detections), "m:((x+7)/2)")
+
+        # frac7
+        detections = [
+            ("(", 0.4, (0.042842, 0.232356, 0.084639, 0.258415)),
+            ("x", 0.4, (0.069488, 0.251900, 0.062696, 0.112921)),
+            ("-", 0.4, (0.125131, 0.276330, 0.027691, 0.027144)),
+            ("2", 0.4, (0.187827, 0.254615, 0.055904, 0.131379)),
+            (")", 0.4, (0.254180, 0.266558, 0.068443, 0.255157)),
+            ("m", 0.4, (0.373824, 0.144408, 0.099791, 0.123779)),
+            ("-", 0.4, (0.380878, 0.237242, 0.156740, 0.051031)),
+            ("3", 0.4, (0.373824, 0.350163, 0.067398, 0.148751)),
+        ]
+
+        self.assertEqual(convert_from_objects_to_string(detections), "(x-2)(m/3)")
+
+        # frac7
+        detections = [
+            ("(", 0.4, (0.042842, 0.232356, 0.084639, 0.258415)),
+            ("x", 0.4, (0.069488, 0.251900, 0.062696, 0.112921)),
+            ("-", 0.4, (0.125131, 0.276330, 0.027691, 0.027144)),
+            ("2", 0.4, (0.187827, 0.254615, 0.055904, 0.131379)),
+            (")", 0.4, (0.254180, 0.266558, 0.068443, 0.255157)),
+            ("m", 0.4, (0.373824, 0.144408, 0.099791, 0.123779)),
+            ("-", 0.4, (0.380878, 0.237242, 0.156740, 0.051031)),
+            ("3", 0.4, (0.373824, 0.350163, 0.067398, 0.148751)),
+        ]
+
+        self.assertEqual(convert_from_objects_to_string(detections), "(x-2)(m/3)")
+
     def test_convert_from_objects_to_string(self):
         detections = [("=", 0.4, (0.398438, 0.509766, 0.312500, 0.097656)),
                       ("x", 0.4, (0.720703, 0.500000, 0.222656, 0.250000)),
@@ -592,7 +658,7 @@ class Tests(unittest.TestCase):
             ("-", 0.4, (0.504929, 0.361296, 0.040526, 0.048173)),
             ("3", 0.4, (0.561062, 0.348837, 0.044359, 0.146179)),
         ]
-        self.assertEqual(get_exponent(detections, 1), ("(y^2+3y+1)", 7))
+        self.assertEqual(get_exponent(detections, 1), ("y^2+3y+1", 7))
 
     def test_get_all_numerator_and_denominator(self):
         # frac1
