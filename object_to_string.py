@@ -14,6 +14,7 @@ def convert_from_objects_to_string(detections: list) -> str:
      """
     detections.sort(key=lambda x: x[2][0] - x[2][2] / 2)
     list_all_fraction = get_all_fractions(detections)
+    # all index for get exponent
     list_all_index_fraction = get_all_index_fraction(list_all_fraction)
     result = ""
     length = len(detections)
@@ -41,8 +42,6 @@ def convert_from_objects_to_string(detections: list) -> str:
 
                             if should_add_bracket("", next_label):
                                 fraction_label = f"({fraction_label}){script}"
-                        else:
-                            fraction_label = f"({fraction_label})"
 
                         # add () for exponent, Ex x^x+1 = > x^(x+1)
                         if re.search('[+*/=-]', fraction_label):
@@ -50,6 +49,7 @@ def convert_from_objects_to_string(detections: list) -> str:
                         fraction_label = f"^{fraction_label}"
 
                 if not is_super:
+                    # add () for fraction, Ex x/2*3 => (x/2)*3
                     remove_list = remove_list + list(range(i, end_of_fraction + 1))
                     next_label = detections[end_of_fraction + 1][0] if end_of_fraction != length - 1 else ""
                     previous_label = detections[i - 1][0] if i != 0 else ""
@@ -142,7 +142,8 @@ def is_super_script(previous_box, current_box):
     previous_x, previous_y, previous_w, previous_h = previous_box
     bottom_current = current_y + current_h / 2
     top_previous = previous_y - previous_h / 2
-
+    #     2  current
+    #    3   previous
     if bottom_current <= top_previous + previous_h * superscript_threshold:
         return True
     return False
@@ -161,7 +162,8 @@ def is_sub_script(previous_box, current_box):
     previous_x, previous_y, previous_w, previous_h = previous_box
     top_current = current_y - current_h / 2
     bottom_previous = previous_y + previous_h / 2
-
+    #   2    previous
+    #    3   current
     if bottom_previous <= top_current + current_h * subscript_threshold:
         return True
     return False
