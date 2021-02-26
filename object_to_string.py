@@ -1,5 +1,6 @@
 import unittest
 import re
+import math
 
 superscript_threshold = 1 / 2
 subscript_threshold = 3 / 4
@@ -17,30 +18,53 @@ def convert_from_objects_to_string(detections: list) -> str:
     length = len(detections)
     end_of_script = 0
     end_of_fraction = -1
+    remove_list = []
     for i in range(0, length):
-        if i > end_of_fraction:
+        if i not in remove_list:
             fraction = next((x for x in list_all_fraction if x[1] == i), [])
             if fraction:
                 end_of_fraction = fraction[2]
-                next_label = detections[end_of_fraction + 1][0] if end_of_fraction != length - 1 else ""
-                previous_label = detections[i - 1][0] if i != 0 else ""
-                if should_add_bracket(previous_label, next_label):
-                    result += f"({fraction[0]})"
-                else:
-                    result += fraction[0]
+                fraction_label = fraction[0]
+                fraction_box = get_box_fraction(detections, i, end_of_fraction)
+                is_super = False
+                if 1 != 0 and end_of_fraction != length - 1:
+                    # if fraction is exponent
+                    if is_super_script(detections[i - 1][2], fraction_box):
+                        is_super = True
+                        # after fraction still is exponent
+                        if is_in_line(fraction_box, detections[end_of_fraction + 1][2]):
+                            script, end_of_script = get_exponent(detections, end_of_fraction + 1)
+
+                            remove_list = remove_list + list(range(i, end_of_script + 1))
+                            next_label = detections[end_of_fraction + 1][0]
+
+                            if should_add_bracket("", next_label):
+                                fraction_label = f"({fraction_label}){script}"
+                        else:
+                            fraction_label = f"({fraction_label})"
+
+                        # add () for exponent, Ex x^x+1 = > x^(x+1)
+                        if re.search('[+*/=-]', fraction_label):
+                            fraction_label = f'({fraction_label})'
+                        fraction_label = f"^{fraction_label}"
+
+                if not is_super:
+                    remove_list = remove_list + list(range(i, end_of_fraction + 1))
+                    next_label = detections[end_of_fraction + 1][0] if end_of_fraction != length - 1 else ""
+                    previous_label = detections[i - 1][0] if i != 0 else ""
+                    if should_add_bracket(previous_label, next_label):
+                        fraction_label = f"({fraction_label})"
+                result += fraction_label
             else:
                 if i != 0:
                     if i != end_of_fraction + 1:
-                        current_x, current_y, current_w, current_h = detections[i][2]
-                        previous_x, previous_y, previous_w, previous_h = detections[i - 1][2]
-                        bottom_current = current_y + current_h / 2
-                        top_previous = previous_y - previous_h / 2
                         # Add pow
                         if i > end_of_script:
-                            if bottom_current <= top_previous + previous_h * superscript_threshold:
+                            if is_super_script(detections[i - 1][2], detections[i][2]):
                                 # get exponent
                                 script, end_of_script = get_exponent(detections, i)
 
+                                remove_list = remove_list + list(range(i, end_of_script + 1))
                                 # Except -^2
                                 if not is_operators(detections[i - 1][0]):
                                     # add () for exponent, Ex x^x+1 = > x^(x+1)
@@ -55,7 +79,6 @@ def convert_from_objects_to_string(detections: list) -> str:
                         result += detections[i][0]
                 else:
                     result = detections[0][0]
-
     return result.replace(".", "*").replace(",", ".")
 
 
@@ -94,8 +117,65 @@ def convert_from_objects_to_string(detections: list) -> str:
 #     return (script, end_of_script) if end_of_script > end_of_superscript else (script, end_of_superscript)
 
 
-def get_exponent(detections: list, index: int) -> (str, int):
+def is_super_script(previous_box, current_box):
+    current_x, current_y, current_w, current_h = current_box
+    previous_x, previous_y, previous_w, previous_h = previous_box
+    bottom_current = current_y + current_h / 2
+    top_previous = previous_y - previous_h / 2
 
+    if bottom_current <= top_previous + previous_h * superscript_threshold:
+        return True
+    return False
+
+
+def is_in_line(previous_box, current_box):
+    if is_super_script(previous_box, current_box):
+        return False
+    if is_sub_script(previous_box, current_box):
+        return False
+    return True
+
+
+def is_sub_script(previous_box, current_box):
+    current_x, current_y, current_w, current_h = current_box
+    previous_x, previous_y, previous_w, previous_h = previous_box
+    top_current = current_y - current_h / 2
+    bottom_previous = previous_y + previous_h / 2
+
+    if bottom_previous <= top_current + current_h * subscript_threshold:
+        return True
+    return False
+
+
+def get_box_fraction(detections: list, begin: int, end: int) -> (int, int, int, int):
+    begin_x, begin_y, begin_w, begin_h = detections[begin][2]
+    end_x, end_y, end_w, end_h = detections[end][2]
+
+    left = begin_x - begin_w / 2
+    right = begin_x + begin_w / 2
+    top = begin_y - begin_h / 2
+    bottom = begin_y + begin_h / 2
+
+    for i in range(begin + 1, end + 1):
+        current_x, current_y, current_w, current_h = detections[i][2]
+        current_top = current_y - current_h / 2
+        current_bottom = current_y + current_h / 2
+        current_right = current_x + begin_w / 2
+        if current_top < top:
+            top = current_top
+        if current_bottom > bottom:
+            bottom = current_bottom
+        if current_right > right:
+            right = current_right
+
+    w = right - left
+    h = bottom - top
+    x = left + w / 2
+    y = top + h / 2
+    return x, y, w, h
+
+
+def get_exponent(detections: list, index: int) -> (str, int):
     end_of_script = start_of_script = index
     length = len(detections)
     list_exponent = [detections[index]]
@@ -104,16 +184,16 @@ def get_exponent(detections: list, index: int) -> (str, int):
     while True:
         if end_of_script >= length - 1:
             break
-        end_of_script += 1
-        current_x, current_y, current_w, current_h = detections[end_of_script][2]
-        previous_x, previous_y, previous_w, previous_h = detections[start_of_script][2]
-        # current = detections[end_of_script][0]
-        # previous = detections[start_of_script][0]
-        top_current = current_y - current_h / 2
-        bottom_previous = previous_y + previous_h / 2
-        if bottom_previous <= top_current + current_h * subscript_threshold:
-            end_of_script -= 1
+        if is_sub_script(detections[start_of_script][2], detections[end_of_script + 1][2]):
             break
+        # if is_super_script(detections[start_of_script][2], detections[end_of_script + 1][2]):
+        #     if end_of_script + 2 == length - 1:
+        #         break
+        #     else:
+        #         if is_in_line(detections[start_of_script][2], detections[end_of_script + 1][2]):
+        #     break
+
+        end_of_script += 1
         list_exponent.append(detections[end_of_script])
 
     script = convert_from_objects_to_string(list_exponent)
@@ -633,6 +713,21 @@ class Tests(unittest.TestCase):
             ("3", 0.4, (0.561062, 0.348837, 0.044359, 0.146179)),
         ]
         self.assertEqual(convert_from_objects_to_string(detections), "x^(y^2+3y+1)-3")
+
+        # exponent.png
+        detections = [
+            ("x", 0.4, (0.065831, 0.191097, 0.072100, 0.080347)),
+            ("1", 0.4, (0.113636, 0.061889, 0.018286, 0.062975)),
+            ("-", 0.4, (0.115726, 0.099349, 0.032915, 0.009772)),
+            ("2", 0.4, (0.114681, 0.135722, 0.030825, 0.058632)),
+            ("x", 0.4, (0.154911, 0.106406, 0.031870, 0.054289)),
+            ("2", 0.4, (0.188871, 0.071661, 0.023511, 0.041260)),
+            ("-", 0.4, (0.220742, 0.092834, 0.015152, 0.020630)),
+            ("3", 0.4, (0.269854, 0.047774, 0.022466, 0.054289)),
+            ("-", 0.4, (0.267764, 0.086862, 0.048589, 0.023887)),
+            ("2", 0.4, (0.263062, 0.119978, 0.043365, 0.035831)),
+        ]
+        self.assertEqual(convert_from_objects_to_string(detections), "x^((1/2)x^2-3/2)")
 
     def test_normalize_polynomial(self):
         polynomial = "4=x^2"
