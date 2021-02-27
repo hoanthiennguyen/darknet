@@ -1,5 +1,6 @@
 import unittest
 import re
+import pytexit
 
 superscript_threshold = 1 / 2
 subscript_threshold = 3 / 4
@@ -365,7 +366,25 @@ def get_all_numerator_and_denominator(detections: list, index_of_fraction_sign: 
     return numerator, denominator, min_index, max_index
 
 
-# def is_numerator_or_denominator
+def convert_infix_to_latex(polynomial: str) -> str:
+    polynomial = normalize_polynomial(polynomial)
+    polynomial = polynomial.replace("^", "**")
+    result = ""
+    list_polynomial = polynomial.split("=")
+    length = len(list_polynomial)
+    for i in range(0, length):
+        polynomial = pytexit.py2tex(list_polynomial[i], print_latex=False, print_formula=False)
+        end = len(polynomial) - 2
+        if i == 0:
+            result = f"{polynomial[2:end]}"
+        else:
+            result = f"{result}={polynomial[2:end]}"
+
+    return f'$${result}$$'
+
+
+# print(pytexit.py2tex("2*x**2-3*(x+1)"))
+# print(convert_infix_to_latex("2*x**2-3*(x+1)"))
 
 
 class Tests(unittest.TestCase):
@@ -957,7 +976,8 @@ class Tests(unittest.TestCase):
         self.assertEqual(get_all_numerator_and_denominator(detections, 3), ("(3+x^2-(1/2)x)", "(3/(x^3)+2x-3+5x)", 0,
                                                                             21))
 
-    def test_get_all_fractions(self):  # # frac1
+    def test_get_all_fractions(self):
+        # frac1
         detections = [
             ("1", 0.4, (0.065308, 0.124321, 0.031348, 0.094463)),
             ("-", 0.4, (0.073145, 0.179696, 0.060606, 0.016287)),
@@ -1088,3 +1108,19 @@ class Tests(unittest.TestCase):
         detections.sort(key=lambda x: x[2][0] - x[2][2] / 2)
         self.assertEqual(get_all_fractions(detections),
                          [("3x/3", 0, 3), ("(3+2x^2+3/5)/(1/6-5)", 7, 21), ("1/6", 23, 25)])
+
+    def test_convert_infix_to_latex(self):
+        polynomial = "4=x^2"
+        self.assertEqual(convert_infix_to_latex(polynomial), "$$4=x^2$$")
+
+        polynomial = "2x^2-3(x+1)=0"
+        self.assertEqual(convert_infix_to_latex(polynomial), "$$2x^2-3\left(x+1\\right)=0$$")
+
+        polynomial = "x^11+x^(x^2+2x+1)"
+        self.assertEqual(convert_infix_to_latex(polynomial), "$$x^{11}+x^{x^2+2x+1}$$")
+
+        polynomial = "(x^(3-x/2))/(x^2+1)"
+        self.assertEqual(convert_infix_to_latex(polynomial), "$$\\frac{x^{3-\\frac{x}{2}}}{x^2+1}$$")
+
+        polynomial = "3x/3-1+(3+2x^2+3/5)/(1/6-5)+1/6"
+        self.assertEqual(convert_infix_to_latex(polynomial), "$$\\frac{3x}{3}-1+\\frac{3+2x^2+\\frac{3}{5}}{\\frac{1}{6}-5}+\\frac{1}{6}$$")
