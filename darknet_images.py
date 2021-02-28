@@ -4,6 +4,7 @@ import os
 import random
 import cv2
 import numpy as np
+import time
 
 import darknet
 from object_to_string import convert_from_objects_to_string
@@ -172,12 +173,15 @@ def main():
     check_arguments_errors(args)
 
     random.seed(3)  # deterministic bbox colors
+    t = time.time()
     network, class_names, class_colors = darknet.load_network(
         args.config_file,
         args.data_file,
         args.weights,
         batch_size=args.batch_size
     )
+    t1 = time.time()
+    print("Load weight takes: {}s".format(t1 - t))
 
     image_name = args.input
 
@@ -185,6 +189,7 @@ def main():
         image_name, network, class_names, class_colors, args.thresh
     )
 
+    print("Detection takes: {}s".format(time.time() - t1))
     print(convert_from_objects_to_string(detections))
 
     if args.save_labels:
