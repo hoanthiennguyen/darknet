@@ -7,7 +7,7 @@ import numpy as np
 import time
 
 import darknet
-from object_to_string import convert_from_objects_to_string
+from object_to_string import *
 
 
 def parser():
@@ -188,9 +188,15 @@ def main():
     image, detections = image_detection(
         image_name, network, class_names, class_colors, args.thresh
     )
-
     print("Detection takes: {}s".format(time.time() - t1))
-    print(convert_from_objects_to_string(detections))
+
+    polynomial = convert_from_objects_to_string(detections)
+
+    print(polynomial)
+
+    latex = convert_infix_to_latex(polynomial)
+
+    print(latex)
 
     if args.save_labels:
         save_annotations(image_name, image, detections, class_names)
