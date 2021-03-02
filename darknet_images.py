@@ -13,7 +13,9 @@ from object_to_string import *
 def parser():
     cmd_parser = argparse.ArgumentParser(description="YOLO Object Detection")
     cmd_parser.add_argument("--input", type=str, default="testing-images/testing.png",
-                            help="testing image filename")
+                            help="testing image filename or a folder containing testing images")
+    cmd_parser.add_argument("--output_dir", type=str, default="testing-labels",
+                            help="folder to save labels")
     cmd_parser.add_argument("--batch_size", default=1, type=int,
                             help="number of images to be processed at the same time")
     cmd_parser.add_argument("--weights", default="weights/latest.weights",
@@ -156,16 +158,19 @@ def convert2relative(image, bbox):
     return x / width, y / height, w / width, h / height
 
 
-def save_annotations(name, image, detections, class_names):
+def save_annotations(name, image, detections, class_names, output_dir):
     """
     Files saved with image_name.txt and relative coordinates
     """
-    file_name = name.split(".")[:-1][0] + ".txt"
+    filename = name.split("/")[-1]
+    filename_without_ext = filename.split(".")[0]
+    file_name = output_dir + "/" + filename_without_ext + ".txt"
+    print("Saving " + file_name)
     with open(file_name, "w") as f:
         for label, confidence, bbox in detections:
             x, y, w, h = convert2relative(image, bbox)
             label = class_names.index(label)
-            f.write("{} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f}\n".format(label, x, y, w, h, float(confidence)))
+            f.write("{} {:.4f} {:.4f} {:.4f} {:.4f}\n".format(label, x, y, w, h, ))
 
 
 def main():
@@ -182,29 +187,41 @@ def main():
     )
     t1 = time.time()
     print("Load weight takes: {}s".format(t1 - t))
+    image_names = load_images(args.input)
+    output_dir = args.output_dir
+    if len(image_names) > 1:
+        print("Detecting for {} images".format(len(image_names)))
+        for i in range(len(image_names)):
+            image_name = image_names[i]
+            image, detections = image_detection(
+                image_name, network, class_names, class_colors, args.thresh
+            )
+            polynomial = convert_from_objects_to_string(detections)
+            print(polynomial)
 
-    image_name = args.input
+            save_annotations(image_name, image, detections, class_names, output_dir)
 
-    image, detections = image_detection(
-        image_name, network, class_names, class_colors, args.thresh
-    )
-    print("Detection takes: {}s".format(time.time() - t1))
+    elif len(image_names) == 1:
+        image_name = image_names[0]
+        image, detections = image_detection(
+            image_name, network, class_names, class_colors, args.thresh
+        )
+        polynomial = convert_from_objects_to_string(detections)
 
-    polynomial = convert_from_objects_to_string(detections)
+        print(polynomial)
 
-    print(polynomial)
+        latex = convert_infix_to_latex(polynomial)
 
-    latex = convert_infix_to_latex(polynomial)
+        print(latex)
 
-    print(latex)
-
-    if args.save_labels:
-        save_annotations(image_name, image, detections, class_names)
-    darknet.print_detections(detections, args.ext_output)
-
-    if not args.dont_show:
-        cv2.imshow('Inference', image)
-        cv2.waitKey()
+        if args.save_labels:
+            save_annotations(image_name, image, detections, class_names, output_dir)
+        darknet.print_detections(detections, args.ext_output)
+        if len(image_names) < 2 and not args.dont_show:
+            cv2.imshow('Inference', image)
+            cv2.waitKey()
+    t2 = time.time()
+    print("Detection takes: {}s".format(t2 - t1))
 
 
 if __name__ == "__main__":
