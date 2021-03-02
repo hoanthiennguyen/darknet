@@ -61,4 +61,5 @@ __pycache__/
 darknet.pyc
 weights
 testing-images
+testing-labels
 
