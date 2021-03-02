@@ -17,10 +17,29 @@ python-versions = ">=3.6"
 [package.dependencies]
 numpy = ">=1.17.3"
 
+[[package]]
+name = "pytexit"
+version = "0.3.4"
+description = "Convert a Python expression to a LaTeX formula"
+category = "main"
+optional = false
+python-versions = "*"
+
+[package.dependencies]
+six = "*"
+
+[[package]]
+name = "six"
+version = "1.15.0"
+description = "Python 2 and 3 compatibility utilities"
+category = "main"
+optional = false
+python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*"
+
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "7a4d72d9e48996e5272098c51f9d04ce746f1f573c80c0287106c13e16924551"
+content-hash = "d5083e64b7391be892ae7b847a4b6e5b70c5a6f592b0322982096535b162d299"
 
 [metadata.files]
 numpy = [
@@ -75,4 +94,12 @@ opencv-python = [
     {file = "opencv_python-4.5.1.48-cp39-cp39-manylinux2014_x86_64.whl", hash = "sha256:a1dfa0486db367594510c0c799ec7481247dc86e651b69008806d875ab731471"},
     {file = "opencv_python-4.5.1.48-cp39-cp39-win32.whl", hash = "sha256:5172cb37dfd8a0b4945b071a493eb36e5f17675a160637fa380f9c1d9d80535c"},
     {file = "opencv_python-4.5.1.48-cp39-cp39-win_amd64.whl", hash = "sha256:c8cc1f5ff3c352ebe756119014c4e4ec7ae5ac536d1f66b0316667ced37637c8"},
+]
+pytexit = [
+    {file = "pytexit-0.3.4-py2.py3-none-any.whl", hash = "sha256:5b7a9dfad04352d2c81fbf63121a1a98f14bcca72d6f4bc4d596cb56fd8a4813"},
+    {file = "pytexit-0.3.4.tar.gz", hash = "sha256:a7aeb11259472ca624e2efa525f53aac9fa2b7b8774173eeca8343bc38f05db1"},
+]
+six = [
+    {file = "six-1.15.0-py2.py3-none-any.whl", hash = "sha256:8b74bedcbbbaca38ff6d7491d76f2b06b3592611af620f8426e82dddb04a5ced"},
+    {file = "six-1.15.0.tar.gz", hash = "sha256:30639c035cdb23534cd4aa2dd52c3bf48f06e5f4a941509c8bafd8ce11080259"},
 ]
