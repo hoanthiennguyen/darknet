@@ -61,8 +61,9 @@ def convert_from_objects_to_string(detections: list) -> str:
                 if i != 0:
                     # not after fraction
                     if i != end_of_fraction + 1:
+                        previous_label = detections[i - 1][0]
                         # Add pow
-                        if is_super_script(detections[i - 1][2], detections[i][2]):
+                        if is_super_script(detections[i - 1][2], detections[i][2]) and not is_comma(previous_label):
                             # get exponent
                             script, end_of_script = get_exponent(detections, i, list_all_index_fraction)
 
@@ -81,7 +82,7 @@ def convert_from_objects_to_string(detections: list) -> str:
                         result += detections[i][0]
                 else:
                     result = detections[0][0]
-    return result.replace(".", "*").replace(",", ".")
+    return result
 
 
 def get_all_index_fraction(list_fraction: list):
@@ -91,40 +92,6 @@ def get_all_index_fraction(list_fraction: list):
 
     return result
 
-
-# def get_exponent(detections: list, index: int) -> (str, int):
-#     script = detections[index][0]
-#     end_of_script = start_of_script = index
-#     end_of_superscript = index
-#     length = len(detections)
-#     # get subscript or superscript
-#     # Ex: 2^11 => script = 11
-#     while True:
-#         if end_of_script >= length - 1:
-#             break
-#         end_of_script += 1
-#         current_x, current_y, current_w, current_h = detections[end_of_script][2]
-#         previous_x, previous_y, previous_w, previous_h = detections[start_of_script][2]
-#         # current = detections[end_of_script][0]
-#         # previous = detections[start_of_script][0]
-#         top_current = current_y - current_h / 2
-#         bottom_current = current_y + current_h / 2
-#         top_previous = previous_y - previous_h / 2
-#         bottom_previous = previous_y + previous_h / 2
-#         if bottom_previous <= top_current + current_h * subscript_threshold:
-#             end_of_script -= 1
-#             break
-#         if bottom_current <= top_previous + previous_h * superscript_threshold:
-#             (superscript, end_of_superscript) = get_exponent(detections, end_of_script)
-#             # add () for exponent, Ex x^x+1 = > x^(x+1)
-#             if re.search('[+*/=-]', superscript):
-#                 superscript = f'({superscript})'
-#             script += f'^{superscript}'
-#             end_of_script = end_of_superscript
-#         else:
-#             script += detections[end_of_script][0]
-#
-#     return (script, end_of_script) if end_of_script > end_of_superscript else (script, end_of_superscript)
 
 def is_next_label(previous_box, current_box):
     current_x, current_y, current_w, current_h = current_box
@@ -210,7 +177,13 @@ def get_exponent(detections: list, index: int, list_all_fraction: list) -> (str,
         previous_box = detections[start_of_script][2]
         current_box = detections[end_of_script + 1][2]
         if is_sub_script(previous_box, current_box) and (end_of_script + 1) not in list_all_fraction:
-            break
+            current_label = detections[end_of_script + 1][0]
+            if is_comma(current_label) and end_of_script + 2 <= length - 1:
+                next_box = detections[end_of_script + 2][2]
+                if not is_in_line(previous_box, next_box):
+                    break
+            else:
+                break
 
         end_of_script += 1
         list_exponent.append(detections[end_of_script])
@@ -229,7 +202,7 @@ def normalize_polynomial(polynomial: str) -> str:
         if should_add_multiply_operator(previous_label, current_label):
             result += "*"
         result += polynomial[i]
-    return result
+    return result.replace(".", "*").replace(",", ".")
 
 
 def should_add_multiply_operator(previous_label: str, current_label: str) -> bool:
@@ -281,7 +254,7 @@ def is_operators(token: str) -> bool:
 
 
 def is_comma(token: str) -> bool:
-    return token in [","]
+    return token in [",", "."]
 
 
 def is_closing_bracket(token: str) -> bool:
@@ -553,7 +526,7 @@ class Tests(unittest.TestCase):
             (".", 0.4, (0.150731, 0.134093, 0.004702, 0.046688)),
         ]
 
-        self.assertEqual(convert_from_objects_to_string(detections), "m*x/2")
+        self.assertEqual(convert_from_objects_to_string(detections), "m.x/2")
 
         detections = [
             ("m", 0.4, (0.127482, 0.135722, 0.052247, 0.036916)),
@@ -565,7 +538,7 @@ class Tests(unittest.TestCase):
             ("7", 0.4, (0.254702, 0.093377, 0.014107, 0.0521172)),
         ]
 
-        self.assertEqual(convert_from_objects_to_string(detections), "m*(x+7)/2")
+        self.assertEqual(convert_from_objects_to_string(detections), "m.(x+7)/2")
 
         detections = [
             ("m", 0.4, (0.127482, 0.135722, 0.052247, 0.036916)),
@@ -722,7 +695,7 @@ class Tests(unittest.TestCase):
                       ("=", 0.4, (0.922508, 0.229236, 0.073932, 0.152824)),
                       ("0", 0.4, (0.978094, 0.226744, 0.043812, 0.227575)),
                       ]
-        self.assertEqual(convert_from_objects_to_string(detections), "(x+1)(x-2)*2.5-3(x^2-1)2=0")
+        self.assertEqual(convert_from_objects_to_string(detections), "(x+1)(x-2).2,5-3(x^2-1)2=0")
 
     def test_convert_from_objects_to_string_with_exponential_polynomial(self):
         # Untitled.png
@@ -841,6 +814,33 @@ class Tests(unittest.TestCase):
         ]
         self.assertEqual(convert_from_objects_to_string(detections), "(x^(3-x/2))/(x^2+1)")
 
+        # dot.png
+        detections = [
+            ("2", 0.4, (0.157262, 0.230185, 0.044932, 0.080347)),
+            ("2", 0.4, (0.199060, 0.177524, 0.030303, 0.051031)),
+            (",", 0.4, (0.220481, 0.208469, 0.007315, 0.023887)),
+            ("3", 0.4, (0.245037, 0.184039, 0.027168, 0.042345)),
+            ("x", 0.4, (0.277168, 0.188925, 0.027691, 0.026059)),
+            ("-", 0.4, (0.311912, 0.187839, 0.015674, 0.010858)),
+            ("1", 0.4, (0.340909, 0.182953, 0.007837, 0.046688)),
+            (".", 0.4, (0.354493, 0.201954, 0.005747, 0.010858)),
+            ("x", 0.4, (0.384013, 0.185668, 0.032393, 0.039088)),
+        ]
+        self.assertEqual(convert_from_objects_to_string(detections), "2^(2,3x-1.x)")
+
+        # dot2.png
+        detections = [
+            ("2", 0.4, (0.232236, 0.268730, 0.064263, 0.100977)),
+            ("3", 0.4, (0.297544, 0.180782, 0.030825, 0.053203)),
+            (",", 0.4, (0.326803, 0.218241, 0.012017, 0.028230)),
+            ("2", 0.4, (0.364159, 0.173724, 0.037618, 0.058632)),
+            ("+", 0.4, (0.414316, 0.245928, 0.020899, 0.024973)),
+            ("1", 0.4, (0.448015, 0.249186, 0.016196, 0.070575)),
+            (".", 0.4, (0.470481, 0.280130, 0.010972, 0.015201)),
+            ("2", 0.4, (0.511755, 0.245385, 0.041275, 0.071661)),
+        ]
+        self.assertEqual(convert_from_objects_to_string(detections), "2^3,2+1.2")
+
     def test_normalize_polynomial(self):
         polynomial = "4=x^2"
         self.assertEqual(normalize_polynomial(polynomial), "4=x^2")
@@ -852,7 +852,7 @@ class Tests(unittest.TestCase):
         self.assertEqual(normalize_polynomial(polynomial), "4=x*2")
 
         polynomial = "(x+1)(x-2)2,5-3(x^2-1)2=0"
-        self.assertEqual(normalize_polynomial(polynomial), "(x+1)*(x-2)*2,5-3*(x^2-1)*2=0")
+        self.assertEqual(normalize_polynomial(polynomial), "(x+1)*(x-2)*2.5-3*(x^2-1)*2=0")
 
         polynomial = "a(3-2x)b-3m"
         self.assertEqual(normalize_polynomial(polynomial), "a*(3-2*x)*b-3*m")
@@ -1123,4 +1123,13 @@ class Tests(unittest.TestCase):
         self.assertEqual(convert_infix_to_latex(polynomial), "$$\\frac{x^{3-\\frac{x}{2}}}{x^2+1}$$")
 
         polynomial = "3x/3-1+(3+2x^2+3/5)/(1/6-5)+1/6"
-        self.assertEqual(convert_infix_to_latex(polynomial), "$$\\frac{3x}{3}-1+\\frac{3+2x^2+\\frac{3}{5}}{\\frac{1}{6}-5}+\\frac{1}{6}$$")
+        self.assertEqual(convert_infix_to_latex(polynomial),
+                         "$$\\frac{3x}{3}-1+\\frac{3+2x^2+\\frac{3}{5}}{\\frac{1}{6}-5}+\\frac{1}{6}$$")
+
+        polynomial = "2^3,2+1.2"
+        self.assertEqual(convert_infix_to_latex(polynomial),
+                         "$$2^{3.2}+1\\times2$$")
+
+        polynomial = "3x"
+        self.assertEqual(convert_infix_to_latex(polynomial),
+                         "$$3x$$")
