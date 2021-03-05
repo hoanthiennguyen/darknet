@@ -22,6 +22,8 @@ def try_round_root(polynomial, raw_root, n_digits):
 def find_root_using_bisection(polynomial, epsilon, lower, upper):
     if polynomial.eval(lower) * polynomial.eval(upper) > 0:
         return None
+    if polynomial.eval(lower) == 0:
+        return lower
 
     middle = (lower + upper) / 2
     while polynomial.eval(middle) != 0 and abs(upper - lower) > epsilon:
@@ -36,29 +38,10 @@ def find_root_using_bisection(polynomial, epsilon, lower, upper):
     return middle
 
 
-def find_root(polynomial, epsilon, lower, upper):
-    if polynomial.eval(lower) == 0:
-        return None
-    if polynomial.eval(upper) == 0:
-        return upper
-    if polynomial.eval(lower) * polynomial.eval(upper) > 0:
-        return None
-
-    if lower == float('-inf') and upper == float('inf'):
-        lower = get_lower_bound_with_opposite_sign(polynomial, 0)
-        upper = get_upper_bound_with_opposite_sign(polynomial, 0)
-        
-    elif lower == float('-inf'):
-        lower = get_lower_bound_with_opposite_sign(polynomial, upper)
-        
-    elif upper == float('inf'):
-        upper = get_upper_bound_with_opposite_sign(polynomial, lower)
-
-    return find_root_using_bisection(polynomial, epsilon, lower, upper)
-
-
 def get_lower_bound_with_opposite_sign(polynomial, upper, init_step=1):
     if polynomial.eval(float('-inf')) * polynomial.eval(upper) > 0:
+        return None
+    if polynomial.eval(upper) == 0:
         return None
 
     step = init_step
@@ -85,14 +68,27 @@ def get_upper_bound_with_opposite_sign(polynomial, lower, init_step=1):
 
 def solve_from_derivative_roots(polynomial, epsilon, derivative_roots):
     roots = []
-    check_points = derivative_roots.copy()
-    check_points.insert(0, float('-inf'))
-    check_points.append(float('inf'))
+    if len(derivative_roots) > 0:
+        lower_bound = get_lower_bound_with_opposite_sign(polynomial, derivative_roots[0])
+        if lower_bound is not None:
+            roots.append(find_root_using_bisection(polynomial, epsilon, lower_bound, derivative_roots[0]))
 
-    for index in range(0, len(check_points) - 1):
-        root = find_root(polynomial, epsilon, check_points[index], check_points[index + 1])
-        if root is not None:
-            roots.append(root)
+        for index in range(len(derivative_roots) - 1):
+            root = find_root_using_bisection(polynomial, epsilon, derivative_roots[index], derivative_roots[index + 1])
+            if root is not None:
+                roots.append(root)
+
+        upper_bound = get_upper_bound_with_opposite_sign(polynomial, derivative_roots[-1])
+        if upper_bound is not None:
+            roots.append(find_root_using_bisection(polynomial, epsilon, upper_bound, derivative_roots[-1]))
+    else:
+        lower_bound = get_lower_bound_with_opposite_sign(polynomial, 0)
+        upper_bound = get_upper_bound_with_opposite_sign(polynomial, 0)
+
+        if lower_bound is not None:
+            roots.append(find_root_using_bisection(polynomial, epsilon, lower_bound, 0))
+        if upper_bound is not None:
+            roots.append(find_root_using_bisection(polynomial, epsilon, 0, upper_bound))
         
     return roots
 
@@ -227,59 +223,59 @@ class Tests(unittest.TestCase):
         expression = "x^2-1"
         roots = parse_and_solve_and_round(expression, epsilon)
         expected_roots = [-1, 1]
-        for index in range(len(roots)):
-            self.assertEqual(roots[index], expected_roots[index])
+        self.assertEqual(roots, expected_roots)
 
         expression = "x^2-1=0"
         roots = parse_and_solve_and_round(expression, epsilon)
         expected_roots = [-1, 1]
-        for index in range(len(roots)):
-            self.assertEqual(roots[index], expected_roots[index])
+        self.assertEqual(roots, expected_roots)
 
         expression = "x^2-1=8"
         roots = parse_and_solve_and_round(expression, epsilon)
         expected_roots = [-3, 3]
-        for index in range(len(roots)):
-            self.assertEqual(roots[index], expected_roots[index])
+        self.assertEqual(roots, expected_roots)
 
         expression = "x^2-1=-2*x+2"
         roots = parse_and_solve_and_round(expression, epsilon)
         expected_roots = [-3, 1]
-        for index in range(len(roots)):
-            self.assertEqual(roots[index], expected_roots[index])
+        self.assertEqual(roots, expected_roots)
 
         expression = "x^2+2.5*x+1.5"
         roots = parse_and_solve_and_round(expression, epsilon)
         expected_roots = [-1.5, -1]
-        for index in range(len(roots)):
-            self.assertEqual(roots[index], expected_roots[index])
+        self.assertEqual(roots, expected_roots)
 
         expression = "x^4-4*x^2+20*x-7"
         roots = parse_and_solve_and_round(expression, epsilon)
         expected_roots = [-3.2788, 0.3775]
-        for index in range(len(roots)):
-            self.assertEqual(roots[index], expected_roots[index])
+        self.assertEqual(roots, expected_roots)
 
         expression = "0*x-7"
         roots = parse_and_solve_and_round(expression, epsilon)
         expected_roots = []
-        for index in range(len(roots)):
-            self.assertEqual(roots[index], expected_roots[index])
+        self.assertEqual(roots, expected_roots)
 
         expression = "0*x+0"
         roots = parse_and_solve_and_round(expression, epsilon)
         expected_roots = ["Infinite roots"]
-        for index in range(len(roots)):
-            self.assertEqual(roots[index], expected_roots[index])
+        self.assertEqual(roots, expected_roots)
 
         expression = "x^5-5*x^3+4=0"
         roots = parse_and_solve_and_round(expression, epsilon)
         expected_roots = [-2.3077, 1, 2.1433]
-        for index in range(len(roots)):
-            self.assertEqual(roots[index], expected_roots[index])
+        self.assertEqual(roots, expected_roots)
 
         expression = "x^5-6*x^4+4=0"
         roots = parse_and_solve_and_round(expression, epsilon)
         expected_roots = [-0.8734, 0.9431, 5.9969]
-        for index in range(len(roots)):
-            self.assertEqual(roots[index], expected_roots[index])
+        self.assertEqual(roots, expected_roots)
+
+        expression = "x^3+x=100"
+        roots = parse_and_solve_and_round(expression, epsilon)
+        expected_roots = [4.5698]
+        self.assertEqual(roots, expected_roots)
+
+        expression = "x+x^9=1000"
+        roots = parse_and_solve_and_round(expression, epsilon)
+        expected_roots = [2.1539]
+        self.assertEqual(roots, expected_roots)
