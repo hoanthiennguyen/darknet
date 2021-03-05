@@ -20,13 +20,15 @@ def try_round_root(polynomial, raw_root, n_digits):
 
 
 def find_root_using_bisection(polynomial, epsilon, lower, upper):
+    if abs(polynomial.eval(lower)) <= epsilon:
+        return lower
+    if abs(polynomial.eval(upper)) <= epsilon:
+        return None
     if polynomial.eval(lower) * polynomial.eval(upper) > 0:
         return None
-    if polynomial.eval(lower) == 0:
-        return lower
 
     middle = (lower + upper) / 2
-    while polynomial.eval(middle) != 0 and abs(upper - lower) > epsilon:
+    while abs(upper - lower) > epsilon:
         if polynomial.eval(middle) * polynomial.eval(upper) > 0:
             upper = middle
         else:
@@ -90,7 +92,7 @@ def solve_from_derivative_roots(polynomial, epsilon, derivative_roots):
         if upper_bound is not None:
             roots.append(find_root_using_bisection(polynomial, epsilon, 0, upper_bound))
         
-    return roots
+    return list(filter(lambda x: x is not None, roots))
 
 
 def solve_equation(polynomial, epsilon):
@@ -278,4 +280,9 @@ class Tests(unittest.TestCase):
         expression = "x+x^9=1000"
         roots = parse_and_solve_and_round(expression, epsilon)
         expected_roots = [2.1539]
+        self.assertEqual(roots, expected_roots)
+
+        expression = "x^4/4-x^2/2"
+        roots = parse_and_solve_and_round(expression, epsilon)
+        expected_roots = [-1.4142, 0, 1.4142]
         self.assertEqual(roots, expected_roots)
