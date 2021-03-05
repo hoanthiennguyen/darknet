@@ -2,9 +2,9 @@ import unittest
 
 from typing import List
 
-from convert_to_token_list import convert_to_token_list
-from error import ExpressionSyntaxError
-from util import peek, is_operator, is_opening_bracket, is_closing_bracket, is_operand
+from solver.convert_to_token_list import convert_to_token_list
+from solver.error import ExpressionSyntaxError
+from solver.util import peek, is_operator, is_opening_bracket, is_closing_bracket, is_operand
 
 
 def get_precedence(operator):

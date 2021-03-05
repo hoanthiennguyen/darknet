@@ -1,7 +1,7 @@
 import unittest
 from math import log
 
-from polynomial import parse_to_polynomial
+from solver.polynomial import parse_to_polynomial
 
 
 def convert_from_epsilon_to_n_digit(epsilon):

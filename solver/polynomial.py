@@ -2,10 +2,10 @@ import copy
 import unittest
 from typing import List
 
-from error import EvaluationError, ExpressionSyntaxError
-from convert_to_postfix import convert_infix_to_postfix
-from convert_to_token_list import convert_to_token_list
-from util import check_is_a_number, is_unary_operator, is_operand, is_binary_operator
+from solver.error import EvaluationError, ExpressionSyntaxError
+from solver.convert_to_postfix import convert_infix_to_postfix
+from solver.convert_to_token_list import convert_to_token_list
+from solver.util import check_is_a_number, is_unary_operator, is_operand, is_binary_operator
 
 
 def parse_operand(operand: str):
