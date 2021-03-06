@@ -1,6 +1,6 @@
 import unittest
 
-from util import peek, check_is_a_number, is_operator, is_opening_bracket
+from solver.util import peek, check_is_a_number, is_operator, is_opening_bracket
 
 
 def convert_to_token_list(expression):

@@ -8,6 +8,7 @@ import time
 
 import darknet
 from object_to_string import *
+from solver import solve
 
 
 def parser():
@@ -196,8 +197,8 @@ def main():
             image, detections = image_detection(
                 image_name, network, class_names, class_colors, args.thresh
             )
-            polynomial = convert_from_objects_to_string(detections)
-            print(polynomial)
+            expression = convert_from_objects_to_string(detections)
+            print(expression)
 
             save_annotations(image_name, image, detections, class_names, output_dir)
 
@@ -206,11 +207,14 @@ def main():
         image, detections = image_detection(
             image_name, network, class_names, class_colors, args.thresh
         )
-        polynomial = convert_from_objects_to_string(detections)
+        expression = convert_from_objects_to_string(detections)
+        expression = normalize_expression(expression)
+        print(expression)
 
-        print(polynomial)
+        roots = solve.parse_and_solve_and_round(expression, 0.00001)
+        print(roots)
 
-        latex = convert_infix_to_latex(polynomial)
+        latex = convert_infix_to_latex(expression)
 
         print(latex)
 

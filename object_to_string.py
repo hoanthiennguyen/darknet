@@ -192,7 +192,7 @@ def get_exponent(detections: list, index: int, list_all_fraction: list) -> (str,
     return script, end_of_script
 
 
-def normalize_polynomial(polynomial: str) -> str:
+def normalize_expression(polynomial: str) -> str:
     result = polynomial[0]
     for i in range(1, len(polynomial)):
         current_label = polynomial[i]
@@ -340,7 +340,7 @@ def get_all_numerator_and_denominator(detections: list, index_of_fraction_sign: 
 
 
 def convert_infix_to_latex(polynomial: str) -> str:
-    polynomial = normalize_polynomial(polynomial)
+    polynomial = normalize_expression(polynomial)
     polynomial = polynomial.replace("^", "**")
     result = ""
     list_polynomial = polynomial.split("=")
@@ -843,22 +843,22 @@ class Tests(unittest.TestCase):
 
     def test_normalize_polynomial(self):
         polynomial = "4=x^2"
-        self.assertEqual(normalize_polynomial(polynomial), "4=x^2")
+        self.assertEqual(normalize_expression(polynomial), "4=x^2")
 
         polynomial = "2x^2-3(x+1)=0"
-        self.assertEqual(normalize_polynomial(polynomial), "2*x^2-3*(x+1)=0")
+        self.assertEqual(normalize_expression(polynomial), "2*x^2-3*(x+1)=0")
 
         polynomial = "4=x2"
-        self.assertEqual(normalize_polynomial(polynomial), "4=x*2")
+        self.assertEqual(normalize_expression(polynomial), "4=x*2")
 
         polynomial = "(x+1)(x-2)2,5-3(x^2-1)2=0"
-        self.assertEqual(normalize_polynomial(polynomial), "(x+1)*(x-2)*2.5-3*(x^2-1)*2=0")
+        self.assertEqual(normalize_expression(polynomial), "(x+1)*(x-2)*2.5-3*(x^2-1)*2=0")
 
         polynomial = "a(3-2x)b-3m"
-        self.assertEqual(normalize_polynomial(polynomial), "a*(3-2*x)*b-3*m")
+        self.assertEqual(normalize_expression(polynomial), "a*(3-2*x)*b-3*m")
 
         polynomial = "(1/2)x^2-1+((x^2)/3)"
-        self.assertEqual(normalize_polynomial(polynomial), "(1/2)*x^2-1+((x^2)/3)")
+        self.assertEqual(normalize_expression(polynomial), "(1/2)*x^2-1+((x^2)/3)")
 
     def test_should_add_multiply_operator(self):
         self.assertTrue(should_add_multiply_operator("2", "x"))
