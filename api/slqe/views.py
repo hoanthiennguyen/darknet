@@ -41,7 +41,7 @@ class SLQE_API(APIView):
         try: 
             user = User.objects.get(id=id)
             user_serializer = UserSerializer(user, many=True)
-        except User.DoesNotExist: 
+        except User.DoesNotExist:
             return JsonResponse({'message': 'The user does not exist'}, status=status.HTTP_404_NOT_FOUND)
         if request.method == 'GET':
             return JsonResponse(user_serializer.data, safe=False)
@@ -71,3 +71,22 @@ class SLQE_API(APIView):
         expression, roots = algorithm.process(parsed_array)
 
         return JsonResponse({"expression": expression, "roots": roots}, status=status.HTTP_200_OK)
+
+    
+#-------- Role View -------------------
+    @api_view(['GET'])
+    def get_all_role(request):
+        roles = Role.objects.all()
+        role_serializer = RoleSerializer(roles, many=True)
+        return JsonResponse(role_serializer.data, safe=False)
+
+    @api_view(['GET'])
+    def get_role_by_user(request):
+        try: 
+            user = User.objects.get(id=id)
+            user_serializer = UserSerializer(user, many=True)
+        except User.DoesNotExist:
+            return JsonResponse({'message': 'The user does not exist'}, status=status.HTTP_404_NOT_FOUND)
+        role = Role.objects.get(id=user.id)
+        role_serializer = RoleSerializer(roles, many=True)
+        return JsonResponse(role_serializer.data, safe=False)

@@ -20,3 +20,10 @@ class ImageSerializer(serializers.ModelSerializer):
         fields = ('id',
                   'user',
                   'url')
+
+class RoleSerializer(serializers.ModelSerializer):
+ 
+    class Meta:
+        model = Role
+        fields = ('id',
+                  'name')
