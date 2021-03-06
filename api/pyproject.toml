@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "api"
+version = "0.1.0"
+description = ""
+authors = ["Your Name <you@example.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+djangorestframework = "^3.12.2"
+PyMySQL = "^1.0.2"
+django-cors-headers = "^3.7.0"
+djangorestframework-files = "^1.1.0"
+six = "^1.15.0"
+opencv-python = "^4.5.1"
+pytexit = "^0.3.4"
+Pillow = "^8.1.1"
+matplotlib = "^3.3.4"
+
+[tool.poetry.dev-dependencies]
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
