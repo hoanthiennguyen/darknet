@@ -64,9 +64,10 @@ class SLQE_API(APIView):
         print(os.getcwd())
         file_obj = request.FILES['file']
         image = PIL.Image.open(file_obj)
-        # image.save("downloaded.png")
-        # data = cv2.imread("downloaded.png")
-        data = asarray(image)
-        expression, roots = algorithm.process(data)
+
+        parsed_array = asarray(image)
+        parsed_array = cv2.cvtColor(parsed_array, cv2.COLOR_RGB2BGR)
+
+        expression, roots = algorithm.process(parsed_array)
 
         return JsonResponse({"expression": expression, "roots": roots}, status=status.HTTP_200_OK)
