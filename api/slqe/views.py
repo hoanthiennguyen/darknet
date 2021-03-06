@@ -72,3 +72,37 @@ class SLQE_API(APIView):
 
         return JsonResponse({"success": valid, "expression": expression,
                              "latex": latex, "roots": roots}, status=status.HTTP_200_OK)
+
+    @api_view(['POST'])
+    def images_list(request):
+        image_data = JSONParser().parse(request)
+        image_serializer = ImageSerializer(data=image_data)
+        if image_serializer.is_valid():
+            image_serializer.save()
+            return JsonResponse(image_serializer.data, status=status.HTTP_201_CREATED)
+        return JsonResponse(image_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    @api_view(['GET', 'DELETE'])
+    def images_detail(request, id):
+        try:
+            image = Image.objects.get(id=id)
+            image_serializer = ImageSerializer(image, many=True)
+        except Image.DoesNotExist:
+            return JsonResponse({'message': 'The image does not exist'}, status=status.HTTP_404_NOT_FOUND)
+        if request.method == 'GET':
+            return JsonResponse(image_serializer.data, safe=False)
+        elif request.method == 'DELETE':
+            image.delete()
+            return JsonResponse({'message': 'Image was deleted successfully!'}, status=status.HTTP_204_NO_CONTENT)
+
+    @api_view(['GET'])
+    def get_images_by_user(request, id):
+        try:
+            user = User.objects.get(id=id)
+            user_serializer = UserSerializer(user, many=True)
+        except User.DoesNotExist:
+            return JsonResponse({'message': 'The user does not exist'}, status=status.HTTP_404_NOT_FOUND)
+        image = Image.objects.get(user=id)
+        image_serializer = ImageSerializer(image, many=True)
+        return JsonResponse(image_serializer.data, safe=False)
+
