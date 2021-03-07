@@ -29,7 +29,7 @@ def process(image):
     network, class_names, class_colors = darknet.load_network(
         "yolo.cfg",
         "yolo.data",
-        "../weights/31-01.weights",
+        "./weights/31-01.weights",
         1
     )
     processed_image, detections = image_detection(
