@@ -37,12 +37,13 @@ def process(image):
     )
     expression = convert_from_objects_to_string(detections)
     expression = normalize_expression(expression)
+    latex = convert_infix_to_latex(expression)
     print(expression)
 
     roots = solve.parse_and_solve_and_round(expression, 0.00001)
     print(roots)
 
-    return expression, roots
+    return latex, roots
 
 
 class Tests(unittest.TestCase):
