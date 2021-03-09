@@ -342,7 +342,6 @@ def get_all_numerator_and_denominator(detections: list, index_of_fraction_sign: 
 
 
 def convert_infix_to_latex(polynomial: str) -> str:
-    polynomial = normalize_expression(polynomial)
     polynomial = polynomial.replace("^", "**")
     result = ""
     list_polynomial = polynomial.split("=")

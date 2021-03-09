@@ -25,7 +25,6 @@ def image_detection(image, network, class_names, class_colors, thresh):
 
 
 def process(image):
-    print(os.getcwd())
     network, class_names, class_colors = darknet.load_network(
         "yolo.cfg",
         "yolo.data",
