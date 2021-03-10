@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     'slqe.apps.SlqeConfig',
     # CORS
     'corsheaders',
+    'storages',
 ]
 
 CORS_ORIGIN_ALLOW_ALL = False
@@ -140,3 +141,15 @@ STATIC_URL = '/static/'
 MEDIA_URL = '/media/'
 
 MEDIA_ROOT = [os.path.join(BASE_DIR,'media')]
+
+# S3 configuration
+AWS_ACCESS_KEY_ID = 'AKIARCJRQBEKFVN2PSHN'
+AWS_SECRET_ACCESS_KEY = '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'
+AWS_STORAGE_BUCKET_NAME = 'slqe-bucket'
+AWS_S3_CUSTOM_DOMAIN = '%s.s3.amazonaws.com' % AWS_STORAGE_BUCKET_NAME
+AWS_S3_OBJECT_PARAMETERS = {
+    'CacheControl': 'max-age=86400',
+}
+AWS_LOCATION = 'static'
+STATIC_URL = 'https://%s/%s/' % (AWS_S3_CUSTOM_DOMAIN, AWS_LOCATION)
+STATICFILES_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
