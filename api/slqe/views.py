@@ -36,7 +36,7 @@ class SlqeApi(APIView):
     @api_view(['GET', 'PUT', 'DELETE'])
     def user_detail(self, user_id):
         try:
-            user = User.objects.filter(id=user_id)
+            user = User.objects.get(id=user_id)
             user_serializer = UserSerializer(user, many=True)
         except User.DoesNotExist:
             return JsonResponse({'message': 'The user does not exist'}, status=status.HTTP_404_NOT_FOUND)
