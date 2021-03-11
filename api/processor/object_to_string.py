@@ -139,14 +139,10 @@ def is_exponent(previous_detection, current_detection):
     previous_label = previous_detection[0]
     current_label = current_detection[0]
 
-    return is_exponent_label(previous_label, current_label)
+    return is_exponent_label(current_label) and is_base_label(previous_label)
 
 
-def is_exponent_label(previous_label, current_label):
-    return is_exponent_current_label(current_label) and is_exponent_previous_label(previous_label)
-
-
-def is_exponent_current_label(current_label):
+def is_exponent_label(current_label):
     if is_opening_bracket(current_label):
         return True
     if current_label in ["+", "-"]:
@@ -157,7 +153,7 @@ def is_exponent_current_label(current_label):
     return False
 
 
-def is_exponent_previous_label(previous_label):
+def is_base_label(previous_label):
     if previous_label.isdigit() or previous_label.isalpha():
         return True
     if is_closing_bracket(previous_label):
