@@ -34,6 +34,7 @@ def process(image):
     processed_image, detections = image_detection(
         image, network, class_names, class_colors, .25
     )
+    darknet.free_network_ptr(network)
     expression = convert_from_objects_to_string(detections)
     expression = normalize_expression(expression)
     latex = convert_infix_to_latex(expression)
