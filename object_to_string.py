@@ -253,6 +253,8 @@ def get_exponent(detections: list, index: int, list_all_fraction: list) -> (str,
 
 
 def normalize_expression(polynomial: str) -> str:
+    if len(polynomial) == 0:
+        return ""
     result = polynomial[0]
     for i in range(1, len(polynomial)):
         current_label = polynomial[i]
@@ -400,7 +402,6 @@ def get_all_numerator_and_denominator(detections: list, index_of_fraction_sign: 
 
 
 def convert_infix_to_latex(polynomial: str) -> str:
-    polynomial = normalize_expression(polynomial)
     polynomial = polynomial.replace("^", "**")
     result = ""
     list_polynomial = polynomial.split("=")
@@ -1222,23 +1223,23 @@ class Tests(unittest.TestCase):
         polynomial = "4=x^2"
         self.assertEqual(convert_infix_to_latex(polynomial), "$$4=x^2$$")
 
-        polynomial = "2x^2-3(x+1)=0"
+        polynomial = "2*x^2-3*(x+1)=0"
         self.assertEqual(convert_infix_to_latex(polynomial), "$$2x^2-3\left(x+1\\right)=0$$")
 
-        polynomial = "x^11+x^(x^2+2x+1)"
+        polynomial = "x^11+x^(x^2+2*x+1)"
         self.assertEqual(convert_infix_to_latex(polynomial), "$$x^{11}+x^{x^2+2x+1}$$")
 
         polynomial = "(x^(3-x/2))/(x^2+1)"
         self.assertEqual(convert_infix_to_latex(polynomial), "$$\\frac{x^{3-\\frac{x}{2}}}{x^2+1}$$")
 
-        polynomial = "3x/3-1+(3+2x^2+3/5)/(1/6-5)+1/6"
+        polynomial = "3*x/3-1+(3+2*x^2+3/5)/(1/6-5)+1/6"
         self.assertEqual(convert_infix_to_latex(polynomial),
                          "$$\\frac{3x}{3}-1+\\frac{3+2x^2+\\frac{3}{5}}{\\frac{1}{6}-5}+\\frac{1}{6}$$")
 
-        polynomial = "2^3,2+1.2"
+        polynomial = "2^3.2+1*2"
         self.assertEqual(convert_infix_to_latex(polynomial),
                          "$$2^{3.2}+1\\times2$$")
 
-        polynomial = "3x"
+        polynomial = "3*x"
         self.assertEqual(convert_infix_to_latex(polynomial),
                          "$$3x$$")
