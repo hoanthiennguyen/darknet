@@ -1,11 +1,14 @@
 import unittest
 import re
 import pytexit
+import math
 
 superscript_threshold = 1 / 2
 subscript_threshold = 3 / 4
 left_and_right_threshold = 1 / 4
 next_label_threshold = 1 / 2
+exponent_angle_threshold = 20
+label_with_sub_threshold = 0.7
 
 
 def convert_from_objects_to_string(detections: list) -> str:
@@ -31,10 +34,10 @@ def convert_from_objects_to_string(detections: list) -> str:
                 is_super = False
                 if 1 != 0 and end_of_fraction != length - 1:
                     # if fraction is exponent
-                    if is_super_script(detections[i - 1][2], fraction_box):
+                    if is_super_script(get_box(detections[i - 1]), fraction_box):
                         is_super = True
                         # after fraction still is exponent
-                        if is_in_line(fraction_box, detections[end_of_fraction + 1][2]):
+                        if is_in_line(fraction_box, get_box(detections[end_of_fraction + 1])):
                             script, end_of_script = get_exponent(detections, end_of_fraction + 1,
                                                                  list_all_index_fraction)
 
@@ -61,9 +64,8 @@ def convert_from_objects_to_string(detections: list) -> str:
                 if i != 0:
                     # not after fraction
                     if i != end_of_fraction + 1:
-                        previous_label = detections[i - 1][0]
                         # Add pow
-                        if is_super_script(detections[i - 1][2], detections[i][2]) and not is_comma(previous_label):
+                        if is_exponent(detections[i - 1], detections[i]):
                             # get exponent
                             script, end_of_script = get_exponent(detections, i, list_all_index_fraction)
 
@@ -85,6 +87,22 @@ def convert_from_objects_to_string(detections: list) -> str:
     return result
 
 
+def get_box(detection):
+    label = detection[0]
+    if is_label_with_sub(label):
+        center_x, center_y, w, h = detection[2]
+        y = center_y - h / 2
+        h = h * label_with_sub_threshold
+        center_y = y + h / 2
+        return center_x, center_y, w, h
+
+    return detection[2]
+
+
+def is_label_with_sub(label: str):
+    return label in ["y"]
+
+
 def get_all_index_fraction(list_fraction: list):
     result = []
     for item in list_fraction:
@@ -103,6 +121,44 @@ def is_next_label(previous_box, current_box):
     if left_current >= right_previous - previous_h * next_label_threshold:
         return False
     return True
+
+
+def is_exponent(previous_detection, current_detection):
+    previous_box = get_box(previous_detection)
+    current_box = get_box(current_detection)
+    if not is_super_script(previous_box, current_box):
+        return False
+    current_x, current_y, current_w, current_h = current_box
+    previous_x, previous_y, previous_w, previous_h = previous_box
+
+    m = (previous_y - current_y) / (current_x - previous_x)
+
+    if m < math.tan(math.radians(exponent_angle_threshold)):
+        return False
+
+    previous_label = previous_detection[0]
+    current_label = current_detection[0]
+
+    return is_exponent_label(current_label) and is_base_label(previous_label)
+
+
+def is_exponent_label(current_label):
+    if is_opening_bracket(current_label):
+        return True
+    if current_label in ["+", "-"]:
+        return True
+    if current_label.isdigit() or current_label.isalpha():
+        return True
+
+    return False
+
+
+def is_base_label(previous_label):
+    if previous_label.isdigit() or previous_label.isalpha():
+        return True
+    if is_closing_bracket(previous_label):
+        return True
+    return False
 
 
 def is_super_script(previous_box, current_box):
@@ -174,12 +230,12 @@ def get_exponent(detections: list, index: int, list_all_fraction: list) -> (str,
         if end_of_script >= length - 1:
             break
 
-        previous_box = detections[start_of_script][2]
-        current_box = detections[end_of_script + 1][2]
+        previous_box = get_box(detections[start_of_script])
+        current_box = get_box(detections[end_of_script + 1])
         if is_sub_script(previous_box, current_box) and (end_of_script + 1) not in list_all_fraction:
             current_label = detections[end_of_script + 1][0]
             if is_comma(current_label) and end_of_script + 2 <= length - 1:
-                next_box = detections[end_of_script + 2][2]
+                next_box = get_box(detections[end_of_script + 2])
                 if not is_in_line(previous_box, next_box):
                     break
             else:
@@ -300,7 +356,7 @@ def get_all_fractions(detections: list) -> list:
 
 def get_all_numerator_and_denominator(detections: list, index_of_fraction_sign: int) -> (str, str, list):
     length = len(detections)
-    fraction_sign_x, fraction_sign_y, fraction_sign_w, fraction_sign_h = detections[index_of_fraction_sign][2]
+    fraction_sign_x, fraction_sign_y, fraction_sign_w, fraction_sign_h = get_box(detections[index_of_fraction_sign])
     left_fraction_sign = fraction_sign_x - fraction_sign_w / 2
     right_fraction_sign = fraction_sign_x + fraction_sign_w / 2
 
@@ -312,7 +368,7 @@ def get_all_numerator_and_denominator(detections: list, index_of_fraction_sign: 
     max_index = index_of_fraction_sign
     for i in range(0, length):
         if i != index_of_fraction_sign:
-            current_x, current_y, current_w, current_h = detections[i][2]
+            current_x, current_y, current_w, current_h = get_box(detections[i])
 
             if current_y < fraction_sign_y and left_fraction_sign <= current_x <= right_fraction_sign:
                 if i < min_index:
@@ -640,6 +696,21 @@ class Tests(unittest.TestCase):
 
         self.assertEqual(convert_from_objects_to_string(detections), "3+(1/2)^(x^((x+(1/2)x)^3)-1)")
 
+        # 20210301_080755
+        detections = [
+            ("3", 0.4, (0.045882, 0.570916, 0.055279, 0.298025)),
+            ("x", 0.4, (0.110282, 0.594255, 0.071310, 0.233393)),
+            ("=", 0.4, (0.406025, 0.512567, 0.054726, 0.177738)),
+            ("1", 0.4, (0.848259, 0.377020, 0.062465, 0.265709)),
+            ("y", 0.4, (0.179934, 0.667864, 0.051410, 0.308797)),
+            ("x", 0.4, (0.519900, 0.470377, 0.075732, 0.219031)),
+            ("+", 0.4, (0.619679, 0.474865, 0.050857, 0.188510)),
+            ("y", 0.4, (0.679934, 0.535009, 0.046434, 0.290844)),
+            ("+", 0.4, (0.787175, 0.411131, 0.048646, 0.179533)),
+        ]
+
+        self.assertEqual(convert_from_objects_to_string(detections), "3xy=x+y+1")
+
     def test_convert_from_objects_to_string(self):
         detections = [("=", 0.4, (0.398438, 0.509766, 0.312500, 0.097656)),
                       ("x", 0.4, (0.720703, 0.500000, 0.222656, 0.250000)),
@@ -758,7 +829,7 @@ class Tests(unittest.TestCase):
         # Untitled3.png
         detections = [
             ("x", 0.4, (0.041895, 0.427741, 0.050931, 0.121262)),
-            ("y", 0.4, (0.092552, 0.338040, 0.043812, 0.091362)),
+            ("x", 0.4, (0.092552, 0.338040, 0.043812, 0.091362)),
             ("z", 0.4, (0.127327, 0.275748, 0.035597, 0.093023)),
             ("+", 0.4, (0.160460, 0.274917, 0.024096, 0.078073)),
             ("2", 0.4, (0.188938, 0.257475, 0.027382, 0.099668)),
@@ -768,7 +839,7 @@ class Tests(unittest.TestCase):
             ("3", 0.4, (0.368291, 0.313953, 0.038883, 0.156146)),
             ("x", 0.4, (0.406900, 0.344684, 0.042716, 0.114618)),
         ]
-        self.assertEqual(convert_from_objects_to_string(detections), "x^(y^(z+2)-3+3x)")
+        self.assertEqual(convert_from_objects_to_string(detections), "x^(x^(z+2)-3+3x)")
         # Untitled5.png
         detections = [
             ("x", 0.4, (0.180997, 0.372924, 0.081599, 0.167774)),
@@ -841,6 +912,40 @@ class Tests(unittest.TestCase):
             ("2", 0.4, (0.511755, 0.245385, 0.041275, 0.071661)),
         ]
         self.assertEqual(convert_from_objects_to_string(detections), "2^3,2+1.2")
+
+        # exponent4.png
+        detections = [
+            ("x", 0.4, (0.071578, 0.318132, 0.048067, 0.086862)),
+            ("y", 0.4, (0.113375, 0.266015, 0.029258, 0.086862)),
+            ("y", 0.4, (0.154127, 0.216612, 0.031348, 0.081433)),
+            ("-", 0.4, (0.184953, 0.212269, 0.029258, 0.020630)),
+            ("2", 0.4, (0.229624, 0.209555, 0.033960, 0.067318)),
+            ("-", 0.4, (0.273511, 0.245385, 0.025601, 0.021716)),
+            ("3", 0.4, (0.302247, 0.240499, 0.024556, 0.064061)),
+            ("+", 0.4, (0.330982, 0.244300, 0.021421, 0.036916)),
+            ("2", 0.4, (0.360240, 0.233985, 0.021421, 0.061889)),
+            ("x", 0.4, (0.384274, 0.249729, 0.026646, 0.060803)),
+            ("+", 0.4, (0.420063, 0.315961, 0.028213, 0.052117)),
+            ("1", 0.4, (0.472832, 0.291531, 0.036573, 0.127036)),
+        ]
+        self.assertEqual(convert_from_objects_to_string(detections), "x^(y^(y-2)-3+2x)+1")
+
+        # exponent5.png
+        detections = [
+            ("x", 0.4, (0.071578, 0.318132, 0.048067, 0.086862)),
+            ("y", 0.4, (0.113375, 0.266015, 0.029258, 0.086862)),
+            ("x", 0.4, (0.153866, 0.213355, 0.032915, 0.055375)),
+            ("-", 0.4, (0.184953, 0.212269, 0.029258, 0.020630)),
+            ("2", 0.4, (0.229624, 0.209555, 0.033960, 0.067318)),
+            ("-", 0.4, (0.273511, 0.245385, 0.025601, 0.021716)),
+            ("3", 0.4, (0.302247, 0.240499, 0.024556, 0.064061)),
+            ("+", 0.4, (0.330982, 0.244300, 0.021421, 0.036916)),
+            ("2", 0.4, (0.360240, 0.233985, 0.021421, 0.061889)),
+            ("x", 0.4, (0.384274, 0.249729, 0.026646, 0.060803)),
+            ("+", 0.4, (0.420063, 0.315961, 0.028213, 0.052117)),
+            ("1", 0.4, (0.472832, 0.291531, 0.036573, 0.127036)),
+        ]
+        self.assertEqual(convert_from_objects_to_string(detections), "x^(y^(x-2)-3+2x)+1")
 
     def test_normalize_polynomial(self):
         polynomial = "4=x^2"
@@ -1114,23 +1219,23 @@ class Tests(unittest.TestCase):
         polynomial = "4=x^2"
         self.assertEqual(convert_infix_to_latex(polynomial), "$$4=x^2$$")
 
-        polynomial = "2x^2-3(x+1)=0"
+        polynomial = "2*x^2-3*(x+1)=0"
         self.assertEqual(convert_infix_to_latex(polynomial), "$$2x^2-3\left(x+1\\right)=0$$")
 
-        polynomial = "x^11+x^(x^2+2x+1)"
+        polynomial = "x^11+x^(x^2+2*x+1)"
         self.assertEqual(convert_infix_to_latex(polynomial), "$$x^{11}+x^{x^2+2x+1}$$")
 
         polynomial = "(x^(3-x/2))/(x^2+1)"
         self.assertEqual(convert_infix_to_latex(polynomial), "$$\\frac{x^{3-\\frac{x}{2}}}{x^2+1}$$")
 
-        polynomial = "3x/3-1+(3+2x^2+3/5)/(1/6-5)+1/6"
+        polynomial = "3*x/3-1+(3+2*x^2+3/5)/(1/6-5)+1/6"
         self.assertEqual(convert_infix_to_latex(polynomial),
                          "$$\\frac{3x}{3}-1+\\frac{3+2x^2+\\frac{3}{5}}{\\frac{1}{6}-5}+\\frac{1}{6}$$")
 
-        polynomial = "2^3,2+1.2"
+        polynomial = "2^3.2+1*2"
         self.assertEqual(convert_infix_to_latex(polynomial),
                          "$$2^{3.2}+1\\times2$$")
 
-        polynomial = "3x"
+        polynomial = "3*x"
         self.assertEqual(convert_infix_to_latex(polynomial),
                          "$$3x$$")
