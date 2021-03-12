@@ -68,6 +68,7 @@ class SLQE_API(APIView):
         parsed_array = asarray(image)
         parsed_array = cv2.cvtColor(parsed_array, cv2.COLOR_RGB2BGR)
 
-        expression, roots = algorithm.process(parsed_array)
+        valid, expression, latex, roots = algorithm.process(parsed_array)
 
-        return JsonResponse({"expression": expression, "roots": roots}, status=status.HTTP_200_OK)
+        return JsonResponse({"success": valid, "expression": expression,
+                             "latex": latex, "roots": roots}, status=status.HTTP_200_OK)
