@@ -5,7 +5,7 @@ import cv2
 from processor import darknet
 from processor.object_to_string import convert_from_objects_to_string, normalize_expression, convert_infix_to_latex
 from solver import solve
-import os
+
 
 
 def image_detection(image, network, class_names, class_colors, thresh):
@@ -28,7 +28,7 @@ def process(image):
     network, class_names, class_colors = darknet.load_network(
         "yolo.cfg",
         "yolo.data",
-        "./weights/31-01.weights",
+        "./weights/latest.weights",
         1
     )
     processed_image, detections = image_detection(
