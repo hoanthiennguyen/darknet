@@ -37,7 +37,7 @@ class SlqeApi(APIView):
     def user_detail(self, user_id):
         try:
             user = User.objects.get(id=user_id)
-            user_serializer = UserSerializer(user, many=True)
+            user_serializer = UserSerializer(user)
         except User.DoesNotExist:
             return JsonResponse({'message': 'The user does not exist'}, status=status.HTTP_404_NOT_FOUND)
         if self.method == 'GET':
@@ -57,7 +57,7 @@ class SlqeApi(APIView):
     # ------- Image view -------------------
 
     @api_view(['POST'])
-    def get_image(self):
+    def process_image(self):
         print(os.getcwd())
         file_obj = self.FILES['file']
         image = PIL.Image.open(file_obj)
@@ -71,7 +71,7 @@ class SlqeApi(APIView):
                              "latex": latex, "roots": roots}, status=status.HTTP_200_OK)
 
     @api_view(['POST'])
-    def images_list(self):
+    def save_image(self):
         image_data = JSONParser().parse(self)
         image_serializer = ImageSerializer(data=image_data)
         if image_serializer.is_valid():
@@ -80,25 +80,31 @@ class SlqeApi(APIView):
         return JsonResponse(image_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     @api_view(['GET', 'DELETE'])
-    def images_detail(self, image_id):
+    def images_detail(self, user_id, image_id):
+        try:
+            User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return JsonResponse({'message': 'The user does not exist'}, status=status.HTTP_404_NOT_FOUND)
         try:
             image = Image.objects.get(id=image_id)
-            image_serializer = ImageSerializer(image, many=True)
         except Image.DoesNotExist:
             return JsonResponse({'message': 'The image does not exist'}, status=status.HTTP_404_NOT_FOUND)
+        if image.user.id != user_id:
+            return JsonResponse({"message": "Unauthorized"}, status=status.HTTP_401_UNAUTHORIZED)
+
         if self.method == 'GET':
+            image_serializer = ImageSerializer(image)
             return JsonResponse(image_serializer.data, safe=False)
         elif self.method == 'DELETE':
             image.delete()
             return JsonResponse({'message': 'Image was deleted successfully!'}, status=status.HTTP_204_NO_CONTENT)
 
     @api_view(['GET'])
-    def get_images_by_user(self, user_id):
+    def user_images(self, user_id):
         try:
-            user = User.objects.get(id=user_id)
-            user_serializer = UserSerializer(user, many=True)
+            User.objects.get(id=user_id)
         except User.DoesNotExist:
             return JsonResponse({'message': 'The user does not exist'}, status=status.HTTP_404_NOT_FOUND)
-        image = Image.objects.get(user=user_id)
+        image = Image.objects.filter(user=user_id)
         image_serializer = ImageSerializer(image, many=True)
         return JsonResponse(image_serializer.data, safe=False)
