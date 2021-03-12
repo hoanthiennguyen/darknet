@@ -68,7 +68,7 @@ def load_images(images_path):
     jpg, jpeg and png file
     """
     input_path_extension = images_path.split('.')[-1]
-    if input_path_extension in ['jpg', 'jpeg', 'png']:
+    if input_path_extension in ['jpg', 'jpeg', 'png', 'PNG']:
         return [images_path]
     elif input_path_extension == "txt":
         with open(images_path, "r") as f:
@@ -211,12 +211,12 @@ def main():
         expression = normalize_expression(expression)
         print(expression)
 
-        roots = solve.parse_and_solve_and_round(expression, 0.00001)
-        print(roots)
+        # roots = solve.parse_and_solve_and_round(expression, 0.00001)
+        # print(roots)
 
-        latex = convert_infix_to_latex(expression)
+        # latex = convert_infix_to_latex(expression)
 
-        print(latex)
+        # print(latex)
 
         if args.save_labels:
             save_annotations(image_name, image, detections, class_names, output_dir)

@@ -48,7 +48,7 @@ def process(image):
         roots = []
         valid = False
     except (ExpressionSyntaxError, EvaluationError, RecursionError):
-        latex = "Unsupported \\: expression"
+        latex = latex
         roots = []
         valid = False
     return valid, expression, latex, roots
