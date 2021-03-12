@@ -1,6 +1,8 @@
 
 import PIL.Image
 import os
+
+from PIL import UnidentifiedImageError
 from numpy import asarray
 from slqe.custom_storage import MediaStorage
 from django.http.response import *
@@ -118,8 +120,8 @@ class SlqeApi(APIView):
         file_obj = self.FILES['file']
         try:
             image = PIL.Image.open(file_obj)
-        except:
-            return JsonResponse({"message": "An application require a image to reconigzation"},
+        except UnidentifiedImageError:
+            return JsonResponse({"message": "An application require a image to recognize"},
                                 status=status.HTTP_400_BAD_REQUEST)
 
         # parse numpy array and solve equation
