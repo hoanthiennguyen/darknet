@@ -5,7 +5,7 @@ import cv2
 from processor import darknet
 from processor.object_to_string import convert_from_objects_to_string, normalize_expression, convert_infix_to_latex
 from solver import solve
-
+from solver.error import ExpressionSyntaxError, EvaluationError
 
 
 def image_detection(image, network, class_names, class_colors, thresh):
@@ -37,13 +37,21 @@ def process(image):
     darknet.free_network_ptr(network)
     expression = convert_from_objects_to_string(detections)
     expression = normalize_expression(expression)
-    latex = convert_infix_to_latex(expression)
     print(expression)
-
-    roots = solve.parse_and_solve_and_round(expression, 0.00001)
-    print(roots)
-
-    return latex, roots
+    try:
+        latex = convert_infix_to_latex(expression)
+        roots = solve.parse_and_solve_and_round(expression, 0.00001)
+        valid = True
+        print(roots)
+    except SyntaxError:
+        latex = "Unrecognized \\: expression"
+        roots = []
+        valid = False
+    except (ExpressionSyntaxError, EvaluationError, RecursionError):
+        latex = "Unsupported \\: expression"
+        roots = []
+        valid = False
+    return valid, expression, latex, roots
 
 
 class Tests(unittest.TestCase):
