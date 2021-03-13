@@ -15,7 +15,8 @@ opencv-python = "^4.5.1"
 pytexit = "^0.3.4"
 Pillow = "^8.1.1"
 matplotlib = "^3.3.4"
-
+boto3 = "1.17.23"
+django-storages = "1.11.1"
 [tool.poetry.dev-dependencies]
 
 [build-system]
