@@ -57,8 +57,8 @@ def process(image):
     try:
         latex = convert_infix_to_latex(expression)
         try:
-            expression = normalize_before_solve(expression)
-            roots = solve.parse_and_solve_and_round(expression, 0.00001)
+            expression_to_solve = normalize_before_solve(expression)
+            roots = solve.parse_and_solve_and_round(expression_to_solve, 0.00001)
             valid = True
             print(roots)
         except (ExpressionSyntaxError, EvaluationError, RecursionError):

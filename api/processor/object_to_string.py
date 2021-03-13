@@ -1281,7 +1281,7 @@ class Tests(unittest.TestCase):
         self.assertEqual(convert_infix_to_latex(polynomial), "$$4=x^2$$")
 
         polynomial = "2*x^2-3*(x+1)=0"
-        self.assertEqual(convert_infix_to_latex(polynomial), "$$2x^2-3\left(x+1\\right)=0$$")
+        self.assertEqual(convert_infix_to_latex(polynomial), "$$2x^2-3\\left(x+1\\right)=0$$")
 
         polynomial = "x^11+x^(x^2+2*x+1)"
         self.assertEqual(convert_infix_to_latex(polynomial), "$$x^{11}+x^{x^2+2x+1}$$")
