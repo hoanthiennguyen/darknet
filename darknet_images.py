@@ -68,7 +68,7 @@ def load_images(images_path):
     jpg, jpeg and png file
     """
     input_path_extension = images_path.split('.')[-1]
-    if input_path_extension in ['jpg', 'jpeg', 'png', 'PNG']:
+    if input_path_extension in ['jpg', 'jpeg', 'png', 'PNG', 'JPG', "JPEG"]:
         return [images_path]
     elif input_path_extension == "txt":
         with open(images_path, "r") as f:
@@ -77,7 +77,10 @@ def load_images(images_path):
         return glob.glob(
             os.path.join(images_path, "*.jpg")) + \
                glob.glob(os.path.join(images_path, "*.png")) + \
-               glob.glob(os.path.join(images_path, "*.jpeg"))
+               glob.glob(os.path.join(images_path, "*.jpeg")) + \
+               glob.glob(os.path.join(images_path, "*.PNG")) + \
+               glob.glob(os.path.join(images_path, "*.JPEG")) + \
+               glob.glob(os.path.join(images_path, "*.JPG"))
 
 
 def prepare_batch(images, network, channels=3):
@@ -207,16 +210,6 @@ def main():
         image, detections = image_detection(
             image_name, network, class_names, class_colors, args.thresh
         )
-        expression = convert_from_objects_to_string(detections)
-        expression = normalize_expression(expression)
-        print(expression)
-
-        # roots = solve.parse_and_solve_and_round(expression, 0.00001)
-        # print(roots)
-
-        # latex = convert_infix_to_latex(expression)
-
-        # print(latex)
 
         if args.save_labels:
             save_annotations(image_name, image, detections, class_names, output_dir)
@@ -224,6 +217,18 @@ def main():
         if len(image_names) < 2 and not args.dont_show:
             cv2.imshow('Inference', image)
             cv2.waitKey()
+
+        expression = convert_from_objects_to_string(detections)
+        expression = normalize_expression(expression)
+        print(expression)
+
+        roots = solve.parse_and_solve_and_round(expression, 0.00001)
+        print(roots)
+
+        latex = convert_infix_to_latex(expression)
+
+        print(latex)
+
     t2 = time.time()
     print("Detection takes: {}s".format(t2 - t1))
 
