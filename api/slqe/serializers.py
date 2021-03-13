@@ -8,9 +8,10 @@ class UserSerializer(serializers.ModelSerializer):
         fields = ('id',
                   'email',
                   'phone',
-                  'url',
+                  'avatar_url',
                   'name',
-                  'role')
+                  'role',
+                  'is_active')
 
 
 class ImageSerializer(serializers.ModelSerializer):
@@ -18,4 +19,5 @@ class ImageSerializer(serializers.ModelSerializer):
         model = Image
         fields = ('id',
                   'user',
-                  'url')
+                  'url',
+                  'date_time')
