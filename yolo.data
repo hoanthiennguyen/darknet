@@ -1,4 +1,4 @@
-classes=22
+classes=30
 train=train.txt
 valid=val.txt
 names=yolo.names
