@@ -8,6 +8,7 @@ subscript_threshold = 3 / 4
 left_and_right_threshold = 1 / 4
 next_label_threshold = 1 / 2
 exponent_angle_threshold = 20
+sub_angle_threshold = 45
 label_with_sub_threshold = 0.7
 
 
@@ -18,8 +19,6 @@ def convert_from_objects_to_string(detections: list) -> str:
      """
     detections.sort(key=lambda x: x[2][0] - x[2][2] / 2)
     list_all_fraction = get_all_fractions(detections)
-    # all index for get exponent
-    list_all_index_fraction = get_all_index_fraction(list_all_fraction)
     result = ""
     length = len(detections)
     end_of_fraction = -1
@@ -38,14 +37,16 @@ def convert_from_objects_to_string(detections: list) -> str:
                         is_super = True
                         # after fraction still is exponent
                         if is_in_line(fraction_box, get_box(detections[end_of_fraction + 1])):
-                            script, end_of_script = get_exponent(detections, end_of_fraction + 1,
-                                                                 list_all_index_fraction)
+                            script, end_of_script = get_exponent(detections, i - 1, end_of_fraction + 1,
+                                                                 list_all_fraction)
 
                             remove_list = remove_list + list(range(i, end_of_script + 1))
                             next_label = detections[end_of_fraction + 1][0]
 
                             if should_add_bracket("", next_label):
                                 fraction_label = f"({fraction_label}){script}"
+                        else:
+                            remove_list = remove_list + list(range(i, end_of_fraction + 1))
 
                         # add () for exponent, Ex x^x+1 = > x^(x+1)
                         if re.search('[+*/=-]', fraction_label):
@@ -66,8 +67,14 @@ def convert_from_objects_to_string(detections: list) -> str:
                     if i != end_of_fraction + 1:
                         # Add pow
                         if is_exponent(detections[i - 1], detections[i]):
+                            current_label = detections[i][0]
+                            if is_operators(current_label) and i + 1 <= length - 1:
+                                if not operator_is_exponent(detections, i, i - 1, list_all_fraction):
+                                    result += detections[i][0]
+                                    continue
+
                             # get exponent
-                            script, end_of_script = get_exponent(detections, i, list_all_index_fraction)
+                            script, end_of_script = get_exponent(detections, i - 1, i, list_all_fraction)
 
                             remove_list = remove_list + list(range(i, end_of_script + 1))
                             # Except -^2
@@ -185,12 +192,21 @@ def is_sub_script(previous_box, current_box):
     current_x, current_y, current_w, current_h = current_box
     previous_x, previous_y, previous_w, previous_h = previous_box
     top_current = current_y - current_h / 2
+    bottom_current = current_y + current_h / 2
     bottom_previous = previous_y + previous_h / 2
+    top_previous = previous_y - previous_h / 2
     #   2    previous
     #    3   current
-    if bottom_previous <= top_current + current_h * subscript_threshold:
-        return True
-    return False
+
+    if top_current <= top_previous or bottom_current <= bottom_previous:
+        return False
+
+    m = (current_y - previous_y) / (current_x - previous_x)
+
+    if m < math.tan(math.radians(sub_angle_threshold)):
+        return False
+
+    return True
 
 
 def get_box_fraction(detections: list, begin: int, end: int) -> (int, int, int, int):
@@ -220,8 +236,20 @@ def get_box_fraction(detections: list, begin: int, end: int) -> (int, int, int, 
     return x, y, w, h
 
 
-def get_exponent(detections: list, index: int, list_all_fraction: list) -> (str, int):
-    end_of_script = start_of_script = index
+def operator_is_exponent(detections: list, operator_index: int, base_index: int, list_all_fraction: list):
+    next_box = get_box(detections[operator_index + 1])
+    next_fraction = get_fraction_by_index_of_element(list_all_fraction, operator_index + 1)
+    if next_fraction:
+        next_box = get_box_fraction(detections, next_fraction[1], next_fraction[2])
+    base_box = get_box(detections[base_index])
+    if not is_super_script(base_box, next_box):
+        return False
+
+    return True
+
+
+def get_exponent(detections: list, base_index, index: int, list_all_fraction: list) -> (str, int):
+    end_of_script = index_to_compare = index
     length = len(detections)
     list_exponent = [detections[index]]
     # get subscript or superscript
@@ -230,22 +258,53 @@ def get_exponent(detections: list, index: int, list_all_fraction: list) -> (str,
         if end_of_script >= length - 1:
             break
 
-        previous_box = get_box(detections[start_of_script])
+        current_label = detections[end_of_script + 1][0]
+
+        # = is not in exponent
+        if current_label == "=":
+            break
+
+        previous_box = get_box(detections[index_to_compare])
         current_box = get_box(detections[end_of_script + 1])
-        if is_sub_script(previous_box, current_box) and (end_of_script + 1) not in list_all_fraction:
+        current_fraction = get_fraction_by_index_of_element(list_all_fraction, end_of_script + 1)
+        # get box of fraction
+        if current_fraction:
+            current_box = get_box_fraction(detections, current_fraction[1], current_fraction[2])
+        #  if current char is sub_script this is end of exponent
+        if is_sub_script(previous_box, current_box):
             current_label = detections[end_of_script + 1][0]
+            # comma can be sub_script so check the next char with previous char
             if is_comma(current_label) and end_of_script + 2 <= length - 1:
                 next_box = get_box(detections[end_of_script + 2])
-                if not is_in_line(previous_box, next_box):
+                if is_sub_script(previous_box, next_box):
                     break
             else:
                 break
-
-        end_of_script += 1
-        list_exponent.append(detections[end_of_script])
+        #   check current operator is exponent or not
+        if is_operators(current_label) and end_of_script + 2 <= length - 1:
+            if not operator_is_exponent(detections, end_of_script + 1, base_index, list_all_fraction):
+                break
+        # if current is exponent of previous so don't compare current label with next label
+        if not is_exponent(detections[index_to_compare], detections[end_of_script + 1]):
+            index_to_compare += 1
+        # if current is fraction so add fraction element to list_exponent
+        if current_fraction:
+            end_of_script = current_fraction[2]
+            for i in range(current_fraction[1], current_fraction[2] + 1):
+                list_exponent.append(detections[i])
+        else:
+            end_of_script += 1
+            list_exponent.append(detections[end_of_script])
 
     script = convert_from_objects_to_string(list_exponent)
     return script, end_of_script
+
+
+def get_fraction_by_index_of_element(list_all_fraction: list, index: int):
+    for item in list_all_fraction:
+        if item[1] <= index <= item[2]:
+            return item
+    return None
 
 
 def normalize_expression(polynomial: str) -> str:
@@ -770,6 +829,16 @@ class Tests(unittest.TestCase):
         self.assertEqual(convert_from_objects_to_string(detections), "(x+1)(x-2).2,5-3(x^2-1)2=0")
 
     def test_convert_from_objects_to_string_with_exponential_polynomial(self):
+        # 222.PNG
+        detections = [("3", 0.4, (0.5510, 0.3896, 0.0457, 0.4189)),
+                      ("x", 0.4, (0.6023, 0.4548, 0.0551, 0.2528)),
+                      ("-", 0.4, (0.7056, 0.3397, 0.0438, 0.1131)),
+                      ("2", 0.4, (0.7715, 0.3095, 0.0624, 0.4045)),
+                      ("=", 0.4, (0.8761, 0.2778, 0.0513, 0.2383)),
+                      ("0", 0.4, (0.9594, 0.2581, 0.0616, 0.2443)),
+                      ]
+        self.assertEqual(convert_from_objects_to_string(detections), "3x-2=0")
+
         # Untitled.png
         detections = [("x", 0.4, (0.138007, 0.516611, 0.147864, 0.199336)),
                       ("1", 0.4, (0.230011, 0.382890, 0.024096, 0.234219)),
@@ -983,7 +1052,7 @@ class Tests(unittest.TestCase):
             ("1", 0.4, (0.152793, 0.239203, 0.018620, 0.116279)),
             ("2", 0.4, (0.181271, 0.235050, 0.033954, 0.114618)),
         ]
-        self.assertEqual(get_exponent(detections, 1, []), ("12", 2))
+        self.assertEqual(get_exponent(detections, 0, 1, []), ("12", 2))
         # Untitled5.png
         detections = [
             ("x", 0.4, (0.180997, 0.372924, 0.081599, 0.167774)),
@@ -997,7 +1066,7 @@ class Tests(unittest.TestCase):
             ("-", 0.4, (0.504929, 0.361296, 0.040526, 0.048173)),
             ("3", 0.4, (0.561062, 0.348837, 0.044359, 0.146179)),
         ]
-        self.assertEqual(get_exponent(detections, 1, []), ("y^2+3y+1", 7))
+        self.assertEqual(get_exponent(detections, 0, 1, []), ("y^2+3y+1", 7))
 
     def test_get_all_numerator_and_denominator(self):
         # frac1
@@ -1220,7 +1289,7 @@ class Tests(unittest.TestCase):
         self.assertEqual(convert_infix_to_latex(polynomial), "$$4=x^2$$")
 
         polynomial = "2*x^2-3*(x+1)=0"
-        self.assertEqual(convert_infix_to_latex(polynomial), "$$2x^2-3\left(x+1\\right)=0$$")
+        self.assertEqual(convert_infix_to_latex(polynomial), "$$2x^2-3\\left(x+1\\right)=0$$")
 
         polynomial = "x^11+x^(x^2+2*x+1)"
         self.assertEqual(convert_infix_to_latex(polynomial), "$$x^{11}+x^{x^2+2x+1}$$")
@@ -1239,3 +1308,38 @@ class Tests(unittest.TestCase):
         polynomial = "3*x"
         self.assertEqual(convert_infix_to_latex(polynomial),
                          "$$3x$$")
+
+    def test_exponent_operator(self):
+        # test_operator
+        detections = [
+            ("x", 0.4, (0.1158, 0.6406, 0.0431, 0.2347)),
+            ("1", 0.4, (0.1514, 0.5226, 0.0167, 0.1377)),
+            ("0", 0.4, (0.1712, 0.5294, 0.0277, 0.1335)),
+            ("+", 0.4, (0.2760, 0.6094, 0.0430, 0.1447)),
+            ("2", 0.4, (0.3569, 0.5593, 0.0498, 0.2359)),
+            ("x", 0.4, (0.4144, 0.5928, 0.0404, 0.1534)),
+            ("3", 0.4, (0.4451, 0.4579, 0.0384, 0.2203)),
+            ("-", 0.4, (0.5402, 0.5407, 0.0507, 0.0559)),
+            ("1", 0.4, (0.6501, 0.5046, 0.0230, 0.1841)),
+            ("0", 0.4, (0.6806, 0.5150, 0.0322, 0.1606)),
+            ("0", 0.4, (0.7178, 0.5033, 0.0319, 0.1197)),
+            ("=", 0.4, (0.7910, 0.4882, 0.0513, 0.1264)),
+            ("0", 0.4, (0.8907, 0.4802, 0.0471, 0.1847)),
+        ]
+        self.assertEqual(convert_from_objects_to_string(detections), "x^10+2x^3-100=0")
+
+        # test_operator
+        detections = [
+            ("-", 0.4, (0.2914, 0.5626, 0.0625, 0.0799)),
+            ("1", 0.4, (0.1813, 0.2004, 0.0233, 0.1397)),
+            ("1", 0.4, (0.6695, 0.4625, 0.0396, 0.2748)),
+            ("+", 0.4, (0.5902, 0.4823, 0.0535, 0.2319)),
+            ("0", 0.4, (0.8963, 0.4428, 0.0611, 0.3097)),
+            ("=", 0.4, (0.7950, 0.5455, 0.0631, 0.1406)),
+            ("x", 0.4, (0.4970, 0.5552, 0.0671, 0.2238)),
+            ("2", 0.4, (0.1810, 0.4297, 0.0781, 0.1566)),
+            ("x", 0.4, (0.0971, 0.5943, 0.0667, 0.2876)),
+            ("-", 0.4, (0.1765, 0.3089, 0.0568, 0.0863)),
+            ("2", 0.4, (0.4261, 0.4820, 0.0730, 0.3630)),
+        ]
+        self.assertEqual(convert_from_objects_to_string(detections), "x^(1/2)-2x+1=0")

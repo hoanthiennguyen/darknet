@@ -24,6 +24,18 @@ def image_detection(image, network, class_names, class_colors, thresh):
     return cv2.cvtColor(image, cv2.COLOR_BGR2RGB), detections
 
 
+def normalize_before_solve(expression: str):
+    first_char = next((x for x in expression if x.isalpha()), None)
+    next_char = next((x for x in expression if x.isalpha() and x != first_char), None)
+
+    if next_char:
+        raise ExpressionSyntaxError("More than one variable is not supported")
+    else:
+        expression = expression.replace(first_char, "x")
+
+    return expression
+
+
 def process(image):
     network, class_names, class_colors = darknet.load_network(
         "yolo.cfg",
@@ -45,11 +57,12 @@ def process(image):
     try:
         latex = convert_infix_to_latex(expression)
         try:
-            roots = solve.parse_and_solve_and_round(expression, 0.00001)
+            expression_to_solve = normalize_before_solve(expression)
+            roots = solve.parse_and_solve_and_round(expression_to_solve, 0.00001)
             valid = True
             print(roots)
-        except (ExpressionSyntaxError, EvaluationError, RecursionError):
-            message = "Unsupported expression"
+        except (ExpressionSyntaxError, EvaluationError, RecursionError) as e:
+            message = str(e)
     except SyntaxError:
         message = "Unrecognized expression"
 
