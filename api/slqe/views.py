@@ -1,20 +1,17 @@
-import PIL.Image
 import os
+
+import PIL.Image
+import boto3
+import cv2
 from PIL import UnidentifiedImageError
-from numpy import asarray
-from slqe.custom_storage import MediaStorage
 from django.http.response import *
+from numpy import asarray
+from processor import algorithm
+from rest_framework.decorators import api_view
 from rest_framework.parsers import *
 from rest_framework.views import *
-import time
-import base64
 from slqe.models import *
 from slqe.serializers import *
-from rest_framework.decorators import api_view
-from processor import algorithm
-import cv2
-import numpy as np
-import boto3
 
 
 # Create your views here.
@@ -37,7 +34,7 @@ class SlqeApi(APIView):
             if user_serializer.is_valid():
                 user_serializer.save()
                 return JsonResponse(user_serializer.data, status=status.HTTP_201_CREATED)
-            return JsonResponse(user_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return JsonResponse(user_serializer.errors, status=status.HTTP_200_OK)
 
     @api_view(['GET', 'PUT', 'DELETE'])
     def user_detail(self, user_id):
