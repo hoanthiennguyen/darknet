@@ -61,8 +61,8 @@ def process(image):
             roots = solve.parse_and_solve_and_round(expression_to_solve, 0.00001)
             valid = True
             print(roots)
-        except (ExpressionSyntaxError, EvaluationError, RecursionError):
-            message = "Unsupported expression"
+        except (ExpressionSyntaxError, EvaluationError, RecursionError) as e:
+            message = str(e)
     except SyntaxError:
         message = "Unrecognized expression"
 
