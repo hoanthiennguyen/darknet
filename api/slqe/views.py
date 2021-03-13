@@ -106,7 +106,7 @@ class SlqeApi(APIView):
         try:
             image = PIL.Image.open(file_obj)
         except:
-            return JsonResponse({"message": "An application require a image to reconigzation"}, status=HTTP_400_BAD_REQUEST)
+            return JsonResponse({"message": "An application require a image to reconigzation"}, status=status.HTTP_400_BAD_REQUEST)
         # upload image to s3
         # parse MD5 to origin files
         file_obj.seek(0, 0)
