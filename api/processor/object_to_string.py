@@ -258,28 +258,34 @@ def get_exponent(detections: list, base_index, index: int, list_all_fraction: li
 
         current_label = detections[end_of_script + 1][0]
 
+        # = is not in exponent
         if current_label == "=":
             break
 
         previous_box = get_box(detections[index_to_compare])
         current_box = get_box(detections[end_of_script + 1])
         current_fraction = get_fraction_by_index_of_element(list_all_fraction, end_of_script + 1)
+        # get box of fraction
         if current_fraction:
             current_box = get_box_fraction(detections, current_fraction[1], current_fraction[2])
+        #  if current char is sub_script this is end of exponent
         if is_sub_script(previous_box, current_box):
             current_label = detections[end_of_script + 1][0]
+            # comma can be sub_script so check the next char with previous char
             if is_comma(current_label) and end_of_script + 2 <= length - 1:
                 next_box = get_box(detections[end_of_script + 2])
-                if not is_in_line(previous_box, next_box):
+                if is_sub_script(previous_box, next_box):
                     break
             else:
                 break
+        #   check current operator is exponent or not
         if is_operators(current_label) and end_of_script + 2 <= length - 1:
             if not operator_is_exponent(detections, end_of_script + 1, base_index, list_all_fraction):
                 break
-
+        # if current is exponent of previous so don't compare current label with next label
         if not is_exponent(detections[index_to_compare], detections[end_of_script + 1]):
             index_to_compare += 1
+        # if current is fraction so add fraction element to list_exponent
         if current_fraction:
             end_of_script = current_fraction[2]
             for i in range(current_fraction[1], current_fraction[2] + 1):
