@@ -45,6 +45,8 @@ def convert_from_objects_to_string(detections: list) -> str:
 
                             if should_add_bracket("", next_label):
                                 fraction_label = f"({fraction_label}){script}"
+                        else:
+                            remove_list = remove_list + list(range(i, end_of_fraction + 1))
 
                         # add () for exponent, Ex x^x+1 = > x^(x+1)
                         if re.search('[+*/=-]', fraction_label):
@@ -1325,3 +1327,19 @@ class Tests(unittest.TestCase):
             ("0", 0.4, (0.8907, 0.4802, 0.0471, 0.1847)),
         ]
         self.assertEqual(convert_from_objects_to_string(detections), "x^10+2x^3-100=0")
+
+        # test_operator
+        detections = [
+            ("-", 0.4, (0.2914, 0.5626, 0.0625, 0.0799)),
+            ("1", 0.4, (0.1813, 0.2004, 0.0233, 0.1397)),
+            ("1", 0.4, (0.6695, 0.4625, 0.0396, 0.2748)),
+            ("+", 0.4, (0.5902, 0.4823, 0.0535, 0.2319)),
+            ("0", 0.4, (0.8963, 0.4428, 0.0611, 0.3097)),
+            ("=", 0.4, (0.7950, 0.5455, 0.0631, 0.1406)),
+            ("x", 0.4, (0.4970, 0.5552, 0.0671, 0.2238)),
+            ("2", 0.4, (0.1810, 0.4297, 0.0781, 0.1566)),
+            ("x", 0.4, (0.0971, 0.5943, 0.0667, 0.2876)),
+            ("-", 0.4, (0.1765, 0.3089, 0.0568, 0.0863)),
+            ("2", 0.4, (0.4261, 0.4820, 0.0730, 0.3630)),
+        ]
+        self.assertEqual(convert_from_objects_to_string(detections), "x^(1/2)-2x+1=0")
