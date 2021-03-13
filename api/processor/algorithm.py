@@ -38,20 +38,22 @@ def process(image):
     expression = convert_from_objects_to_string(detections)
     expression = normalize_expression(expression)
     print(expression)
+    valid = False
+    roots = []
+    latex = ""
+    message = ""
     try:
         latex = convert_infix_to_latex(expression)
-        roots = solve.parse_and_solve_and_round(expression, 0.00001)
-        valid = True
-        print(roots)
+        try:
+            roots = solve.parse_and_solve_and_round(expression, 0.00001)
+            valid = True
+            print(roots)
+        except (ExpressionSyntaxError, EvaluationError, RecursionError):
+            message = "Unsupported expression"
     except SyntaxError:
-        latex = "Unrecognized \\: expression"
-        roots = []
-        valid = False
-    except (ExpressionSyntaxError, EvaluationError, RecursionError):
-        latex = "Unsupported \\: expression"
-        roots = []
-        valid = False
-    return valid, expression, latex, roots
+        message = "Unrecognized expression"
+
+    return valid, message, expression, latex, roots
 
 
 class Tests(unittest.TestCase):
