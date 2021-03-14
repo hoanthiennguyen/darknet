@@ -89,6 +89,12 @@ def convert_from_objects_to_string(detections: list) -> str:
                                 result += f'^{script}'
                             else:
                                 result += script
+                            if end_of_script + 1 < length:
+                                next_exponent_label = get_label(detections[end_of_script + 1])
+                                next_exponent_fraction = get_fraction_by_index_of_element(list_all_fraction,
+                                                                                          end_of_script + 1)
+                                if not is_operators(next_exponent_label) or next_exponent_fraction:
+                                    result += "."
                         else:
                             result += detections[i][0]
                     else:
@@ -98,8 +104,12 @@ def convert_from_objects_to_string(detections: list) -> str:
     return result
 
 
+def get_label(detection):
+    return detection[0]
+
+
 def get_box(detection):
-    label = detection[0]
+    label = get_label(detection)
     if is_label_with_sub(label):
         center_x, center_y, w, h = detection[2]
         y = center_y - h / 2
@@ -276,7 +286,7 @@ def get_exponent(detections: list, base_box, index: int, list_all_fraction: list
             current_box = get_box(detections[end_of_script + 1])
 
         #  if current char is sub_script this is end of exponent
-        if is_sub_script(previous_box, current_box):
+        if is_sub_script(previous_box, current_box) or not is_super_script(base_box, current_box):
             current_label = detections[end_of_script + 1][0]
             # comma can be sub_script so check the next char with previous char
             if is_comma(current_label) and end_of_script + 2 <= length - 1:
@@ -1341,6 +1351,18 @@ class Tests(unittest.TestCase):
                          "$$3x$$")
 
     def test_exponent_operator(self):
+        # IMG_2420
+        detections = [
+            ("2", 0.4, (0.2739, 0.4695, 0.0952, 0.2817)),
+            ("+", 0.4, (0.4251, 0.4917, 0.0607, 0.1943)),
+            ("3", 0.4, (0.1913, 0.3717, 0.0631, 0.1871)),
+            ("=", 0.4, (0.7318, 0.5065, 0.0639, 0.1057)),
+            ("3", 0.4, (0.5763, 0.4778, 0.0831, 0.2610)),
+            ("0", 0.4, (0.8667, 0.4532, 0.0771, 0.2730)),
+            ("x", 0.4, (0.1151, 0.5626, 0.0796, 0.2262)),
+        ]
+        self.assertEqual(convert_from_objects_to_string(detections), "x^3.2+3=0")
+
         # test_operator
         detections = [
             ("x", 0.4, (0.1158, 0.6406, 0.0431, 0.2347)),
