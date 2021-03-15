@@ -359,7 +359,9 @@ def normalize_expression(polynomial: str) -> str:
         if should_add_multiply_operator(previous_label, current_label):
             result += "*"
         result += polynomial[i]
-    return result.replace(".", "*").replace(",", ".")
+
+    result = result.translate(str.maketrans({'.': '*', ',': '.', '{': '(', '[': '(', '}': ')', '}': ')', ':': '/'}))
+    return result
 
 
 def should_add_multiply_operator(previous_label: str, current_label: str) -> bool:
@@ -1347,6 +1349,10 @@ class Tests(unittest.TestCase):
                          "$$2^{3.2}+1\\times2$$")
 
         polynomial = "3*x"
+        self.assertEqual(convert_infix_to_latex(polynomial),
+                         "$$3x$$")
+
+        polynomial = "(3-y^5+y*7-y*2)/(y-2-2/3+2*5)-(3*5*x^3-(x-y))/((a-b)/(a+b)+(2*x-y)/(3/2))=3:2"
         self.assertEqual(convert_infix_to_latex(polynomial),
                          "$$3x$$")
 

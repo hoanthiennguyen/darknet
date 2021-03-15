@@ -21,8 +21,8 @@ class Image(models.Model):
     id = models.AutoField(primary_key=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     url = models.CharField(max_length=255)
-    date_time = models.DateTimeField(auto_now=True)
+    date_time = models.DateTimeField()
 
     @classmethod
-    def create(cls, user, url):
-        return cls(user=user, url=url)
+    def create(cls, user, url, date_time):
+        return cls(user=user, url=url + "_" + str(date_time), date_time=date_time)
