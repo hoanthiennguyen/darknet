@@ -22,8 +22,12 @@ def try_round_root(polynomial, raw_root, n_digits):
 def find_root_using_bisection(polynomial, epsilon, lower, upper, upper_included=False):
     if abs(polynomial.eval(lower)) <= epsilon:
         return lower
-    if abs(polynomial.eval(upper)) <= epsilon and not upper_included:
-        return None
+    if abs(polynomial.eval(upper)) <= epsilon:
+        if not upper_included:
+            return None
+        else:
+            return upper
+
     if polynomial.eval(lower) * polynomial.eval(upper) > 0:
         return None
 
@@ -42,8 +46,6 @@ def find_root_using_bisection(polynomial, epsilon, lower, upper, upper_included=
 
 def get_lower_bound_with_opposite_sign(polynomial, upper, init_step=1):
     if polynomial.eval(float('-inf')) * polynomial.eval(upper) > 0:
-        return None
-    if polynomial.eval(upper) == 0:
         return None
 
     step = init_step
@@ -77,8 +79,7 @@ def solve_from_derivative_roots(polynomial, epsilon, derivative_roots):
 
         for index in range(len(derivative_roots) - 1):
             root = find_root_using_bisection(polynomial, epsilon, derivative_roots[index], derivative_roots[index + 1])
-            if root is not None:
-                roots.append(root)
+            roots.append(root)
 
         upper_bound = get_upper_bound_with_opposite_sign(polynomial, derivative_roots[-1])
         if upper_bound is not None:
