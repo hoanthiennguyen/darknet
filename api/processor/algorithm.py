@@ -66,6 +66,9 @@ def process(image):
     except SyntaxError:
         message = "Unrecognized expression"
 
+    if not roots:
+        roots = ["No roots"]
+
     return valid, message, expression, latex, roots
 
 
