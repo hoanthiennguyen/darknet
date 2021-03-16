@@ -29,8 +29,8 @@ def normalize_before_solve(expression: str):
     next_char = next((x for x in expression if x.isalpha() and x != first_char), None)
 
     if next_char:
-        raise ExpressionSyntaxError("More than one variable is not supported")
-    else:
+        raise EvaluationError("More than one variable is not supported")
+    elif first_char:
         expression = expression.replace(first_char, "x")
 
     return expression
@@ -63,8 +63,11 @@ def process(image):
             print(roots)
         except (ExpressionSyntaxError, EvaluationError, RecursionError) as e:
             message = str(e)
-    except SyntaxError:
+    except (SyntaxError, IndexError, Exception):
         message = "Unrecognized expression"
+
+    if not roots:
+        roots = ["No roots"]
 
     return valid, message, expression, latex, roots
 

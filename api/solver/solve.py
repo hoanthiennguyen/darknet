@@ -19,11 +19,15 @@ def try_round_root(polynomial, raw_root, n_digits):
         return raw_root
 
 
-def find_root_using_bisection(polynomial, epsilon, lower, upper):
+def find_root_using_bisection(polynomial, epsilon, lower, upper, upper_included=False):
     if abs(polynomial.eval(lower)) <= epsilon:
         return lower
     if abs(polynomial.eval(upper)) <= epsilon:
-        return None
+        if not upper_included:
+            return None
+        else:
+            return upper
+
     if polynomial.eval(lower) * polynomial.eval(upper) > 0:
         return None
 
@@ -42,8 +46,6 @@ def find_root_using_bisection(polynomial, epsilon, lower, upper):
 
 def get_lower_bound_with_opposite_sign(polynomial, upper, init_step=1):
     if polynomial.eval(float('-inf')) * polynomial.eval(upper) > 0:
-        return None
-    if polynomial.eval(upper) == 0:
         return None
 
     step = init_step
@@ -77,12 +79,11 @@ def solve_from_derivative_roots(polynomial, epsilon, derivative_roots):
 
         for index in range(len(derivative_roots) - 1):
             root = find_root_using_bisection(polynomial, epsilon, derivative_roots[index], derivative_roots[index + 1])
-            if root is not None:
-                roots.append(root)
+            roots.append(root)
 
         upper_bound = get_upper_bound_with_opposite_sign(polynomial, derivative_roots[-1])
         if upper_bound is not None:
-            roots.append(find_root_using_bisection(polynomial, epsilon, upper_bound, derivative_roots[-1]))
+            roots.append(find_root_using_bisection(polynomial, epsilon, derivative_roots[-1], upper_bound, upper_included=True))
     else:
         lower_bound = get_lower_bound_with_opposite_sign(polynomial, 0)
         upper_bound = get_upper_bound_with_opposite_sign(polynomial, 0)
@@ -90,7 +91,7 @@ def solve_from_derivative_roots(polynomial, epsilon, derivative_roots):
         if lower_bound is not None:
             roots.append(find_root_using_bisection(polynomial, epsilon, lower_bound, 0))
         if upper_bound is not None:
-            roots.append(find_root_using_bisection(polynomial, epsilon, 0, upper_bound))
+            roots.append(find_root_using_bisection(polynomial, epsilon, 0, upper_bound, upper_included=True))
         
     return list(filter(lambda x: x is not None, roots))
 
@@ -285,4 +286,9 @@ class Tests(unittest.TestCase):
         expression = "x^4/4-x^2/2"
         roots = parse_and_solve_and_round(expression, epsilon)
         expected_roots = [-1.4142, 0, 1.4142]
+        self.assertEqual(roots, expected_roots)
+
+        expression = "3*x^2=0"
+        roots = parse_and_solve_and_round(expression, epsilon)
+        expected_roots = [0]
         self.assertEqual(roots, expected_roots)
