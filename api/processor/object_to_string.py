@@ -2,13 +2,11 @@ import unittest
 import re
 import pytexit
 import math
+from sympy import *
 
 superscript_threshold = 1 / 2
 subscript_threshold = 0.6
-left_and_right_threshold = 1 / 4
-next_label_threshold = 1 / 2
 exponent_angle_threshold = 20
-sub_angle_threshold = 45
 label_with_sub_threshold = 0.7
 
 
@@ -93,8 +91,6 @@ def get_expression(detections: list) -> str:
                 elif current_fraction:
                     # add () for fraction, Ex x/2*3 => (x/2)*3
                     remove_list = remove_list + list(range(i, current_fraction.end_index + 1))
-                    next_label = get_label(
-                        detections[current_fraction.end_index + 1]) if current_fraction.end_index != length - 1 else ""
                     previous_label = get_label(detections[i - 1]) if i != 0 else ""
                     if should_add_bracket(previous_label, next_label):
                         current_label = f"({current_label})"
@@ -134,18 +130,6 @@ def get_all_index_fraction(list_fraction: list):
         result += list(range(item[1], item[2] + 1))
 
     return result
-
-
-def is_next_label(previous_box, current_box):
-    current_x, current_y, current_w, current_h = current_box
-    previous_x, previous_y, previous_w, previous_h = previous_box
-
-    right_previous = previous_x + previous_w
-    left_current = current_x - current_h
-
-    if left_current >= right_previous - previous_h * next_label_threshold:
-        return False
-    return True
 
 
 def is_exponent(base_box, exponent_box, base_label, exponent_label):
@@ -312,12 +296,8 @@ def get_exponent(detections: list, base_box, index: int, list_all_fraction: list
             end_of_script = get_exponent(detections, previous_box, end_of_script_temp,
                                          list_all_fraction)
         else:
-            if current_fraction:
-                end_of_script = current_fraction.end_index
-                index_to_compare = end_of_script
-            else:
-                end_of_script += 1
-                index_to_compare = end_of_script
+            end_of_script = end_of_script_temp
+            index_to_compare = end_of_script
 
     return end_of_script
 
@@ -332,7 +312,7 @@ def get_exponent_expression(detections: list, base_box, index: int, list_all_fra
     return script, end_of_script
 
 
-def get_fraction_by_index_of_element(list_all_fraction: list, index: int) -> Fraction:
+def get_fraction_by_index_of_element(list_all_fraction: list, index: int) -> Fraction or None:
     for item in list_all_fraction:
         if item.start_index <= index <= item.end_index:
             return item
@@ -1341,10 +1321,6 @@ class Tests(unittest.TestCase):
         polynomial = "2^3.2+1*2"
         self.assertEqual(convert_infix_to_latex(polynomial),
                          "$$2^{3.2}+1\\times2$$")
-
-        polynomial = "3*x"
-        self.assertEqual(convert_infix_to_latex(polynomial),
-                         "$$3x$$")
 
         polynomial = "3*x"
         self.assertEqual(convert_infix_to_latex(polynomial),
