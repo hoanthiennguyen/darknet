@@ -200,7 +200,7 @@ def main():
             image, detections = image_detection(
                 image_name, network, class_names, class_colors, args.thresh
             )
-            expression = convert_from_objects_to_string(detections)
+            expression = get_expression(detections)
             print(expression)
 
             save_annotations(image_name, image, detections, class_names, output_dir)
@@ -218,7 +218,7 @@ def main():
             cv2.imshow('Inference', image)
             cv2.waitKey()
 
-        expression = convert_from_objects_to_string(detections)
+        expression = get_expression(detections)
         expression = normalize_expression(expression)
         print(expression)
 

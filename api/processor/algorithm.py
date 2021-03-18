@@ -3,7 +3,7 @@ import unittest
 import cv2
 
 from processor import darknet
-from processor.object_to_string import convert_from_objects_to_string, normalize_expression, convert_infix_to_latex
+from processor.object_to_string import get_expression, normalize_expression, convert_infix_to_latex
 from solver import solve
 from solver.error import ExpressionSyntaxError, EvaluationError
 
@@ -47,7 +47,7 @@ def process(image):
         image, network, class_names, class_colors, .25
     )
     darknet.free_network_ptr(network)
-    expression = convert_from_objects_to_string(detections)
+    expression = get_expression(detections)
     expression = normalize_expression(expression)
     print(expression)
     valid = False
