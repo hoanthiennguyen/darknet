@@ -2,7 +2,6 @@ import unittest
 import re
 import pytexit
 import math
-from sympy import *
 
 superscript_threshold = 1 / 2
 subscript_threshold = 0.6
