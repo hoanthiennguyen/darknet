@@ -11,7 +11,7 @@ subscript_threshold = 0.6
 exponent_angle_threshold = 20
 label_with_sub_threshold = 0.7
 exponent_base_size_ratio_threshold = 0.7
-inline_operator_threshold = 0.2
+inline_operator_threshold = 0.3
 
 
 class Element:
@@ -303,10 +303,10 @@ def is_operator_inline(base_element, operator_element):
     base_x, base_y, base_w, base_h = base_element.box
     operator_x, operator_y, operator_w, operator_h = operator_element.box
 
-    top_base = base_x - base_h / 2
-    bottom_base = base_x + base_h / 2
-    bottom_operator = operator_x + operator_h / 2
-    top_operator = operator_x - operator_h / 2
+    top_base = base_y - base_h / 2
+    bottom_base = base_y + base_h / 2
+    bottom_operator = operator_y + operator_h / 2
+    top_operator = operator_y - operator_h / 2
     if top_base <= (top_operator - operator_h * inline_operator_threshold) and (
             bottom_operator - operator_h * inline_operator_threshold) <= bottom_base:
         return True
@@ -1583,9 +1583,13 @@ class Tests(unittest.TestCase):
         self.assertEqual(get_expression(detections), "12^(3+2)")
 
     def test_operator_inline(self):
-        previous_element = Element("3", 0, 0, box=(0.344498, 0.255814, 0.068900, 0.236434))
-        current_element = Element("+", 1, 1, box=(0.429665, 0.304264, 0.055502, 0.093023))
-        self.assertEqual(is_operator_inline(previous_element, current_element), True)
+        # previous_element = Element("3", 0, 0, box=(0.344498, 0.255814, 0.068900, 0.236434))
+        # current_element = Element("+", 1, 1, box=(0.429665, 0.304264, 0.055502, 0.093023))
+        # self.assertEqual(is_operator_inline(previous_element, current_element), True)
+
+        previous_element = Element(")", 0, 0, box=(0.459770, 0.059175, 0.007315, 0.096634))
+        current_element = Element("-", 1, 1, box=(0.499478, 0.110749, 0.032393, 0.030402))
+        self.assertEqual(is_operator_inline(previous_element, current_element), False)
 
     def test_exponent_operator(self):
         # IMG_2420
