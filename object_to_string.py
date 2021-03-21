@@ -472,6 +472,36 @@ def get_fraction_by_index_of_element(list_all_fraction: list, index: int) -> Fra
     return None
 
 
+def normalize_all_factor(polynomial: str) -> str:
+    factor_stack = []
+    poly = ""
+    index = 0
+    lengh = len(polynomial)
+    while True:
+        if index > lengh:
+            break
+        current_char = polynomial[index] if index < lengh else ""
+        index += 1
+        if current_char.isdigit() or is_comma(current_char):
+            if len(factor_stack) > 0:
+                factor = factor_stack.pop()
+                factor += current_char
+                factor_stack.append(factor)
+            else:
+                factor_stack.append(current_char)
+        else:
+            if len(factor_stack) > 0:
+                factor = factor_stack.pop()
+                factor = factor.lstrip('0')
+                if factor == '' or is_comma(factor[0]):
+                    factor = f'0{factor}'
+                poly += f'{factor}{current_char}'
+            else:
+                poly += current_char
+
+    return poly
+
+
 def normalize_expression(polynomial: str) -> str:
     if len(polynomial) == 0:
         return ""
@@ -486,6 +516,8 @@ def normalize_expression(polynomial: str) -> str:
         result += polynomial[i]
 
     result = result.translate(str.maketrans({'.': '*', ',': '.', '{': '(', '[': '(', '}': ')', ']': ')', ':': '/'}))
+
+    result = normalize_all_factor(result)
     return result
 
 
@@ -1233,6 +1265,27 @@ class Tests(unittest.TestCase):
 
         polynomial = "(1/2)x^2-1+((x^2)/3)"
         self.assertEqual(normalize_expression(polynomial), "(1/2)*x^2-1+((x^2)/3)")
+
+        polynomial = "0001x"
+        self.assertEqual(normalize_expression(polynomial), "1*x")
+
+        polynomial = "2x+0001x"
+        self.assertEqual(normalize_expression(polynomial), "2*x+1*x")
+
+        polynomial = "x^2+0001x"
+        self.assertEqual(normalize_expression(polynomial), "x^2+1*x")
+
+        polynomial = "x^2+0001x=00004"
+        self.assertEqual(normalize_expression(polynomial), "x^2+1*x=4")
+
+        polynomial = "x^2+000,1x=00004"
+        self.assertEqual(normalize_expression(polynomial), "x^2+0.1*x=4")
+
+        polynomial = "x^2+000,1x=000,04"
+        self.assertEqual(normalize_expression(polynomial), "x^2+0.1*x=0.04")
+
+        polynomial = "(x+1)(0x-2)2,5-3(x^2-1)2=0"
+        self.assertEqual(normalize_expression(polynomial), "(x+1)*(0*x-2)*2.5-3*(x^2-1)*2=0")
 
     def test_should_add_multiply_operator(self):
         self.assertTrue(should_add_multiply_operator("2", "x"))
