@@ -90,15 +90,15 @@ class SlqeApi(APIView):
             return JsonResponse({'message': 'The image does not exist'}, status=status.HTTP_404_NOT_FOUND)
         if image.user.id != user.id:
             return JsonResponse({"message": "Unauthorized"}, status=status.HTTP_401_UNAUTHORIZED)
-        # config s3 amazon
-        s3 = boto3.resource('s3', aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-                                aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY)
-        bucket = s3.Bucket(settings.AWS_STORAGE_BUCKET_NAME)
-        obj = bucket.Object(image.url)
         if self.method == 'GET':
             image_serializer = ImageSerializer(image)
             return JsonResponse(image_serializer.data, safe=False)
         elif self.method == 'DELETE':
+            # config s3 amazon
+            s3 = boto3.resource('s3', aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+                                aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY)
+            bucket = s3.Bucket(settings.AWS_STORAGE_BUCKET_NAME)
+            obj = bucket.Object(image.url)
             obj.delete()
             image.delete()
             return HttpResponse(status=status.HTTP_204_NO_CONTENT)

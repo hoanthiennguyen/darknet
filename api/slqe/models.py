@@ -31,12 +31,14 @@ class Image(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     url = models.CharField(max_length=255)
     date_time = models.DateTimeField()
-    expression = models.CharField(max_length=255)
-    latex = models.CharField(max_length=255)
+    expression = models.CharField(max_length=255, default=None)
+    latex = models.CharField(max_length=255, default=None)
     roots = ListCharField(
         base_field=models.CharField(max_length=255),
         size=10,
-        max_length=(10 * 256)  # 6 * 10 character nominals, plus commas
+        max_length=(10 * 256),
+        default=None
+        # 6 * 10 character nominals, plus commas
     )
 
     class Meta:
