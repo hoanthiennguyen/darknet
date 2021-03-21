@@ -7,6 +7,8 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = ('id',
                   'email',
+                  'uid',
+                  'password',
                   'phone',
                   'avatar_url',
                   'name',
@@ -20,4 +22,7 @@ class ImageSerializer(serializers.ModelSerializer):
         fields = ('id',
                   'user',
                   'url',
-                  'date_time')
+                  'date_time',
+                  'expression',
+                  'latex',
+                  'roots')

@@ -26,6 +26,7 @@ class SlqeApi(APIView):
     def user_list(self):
         if self.method == 'GET':
             users = User.objects.all()
+            # users = users.filter(users.role.name == 'CUSTOMER')
             user_serializer = UserSerializer(users, many=True)
             return JsonResponse(user_serializer.data, safe=False)
             # 'safe=False' for objects serialization
@@ -51,14 +52,14 @@ class SlqeApi(APIView):
             user_serializer = UserSerializer(user, data=user_data)
             if user_serializer.is_valid():
                 user_serializer.save()
-                return JsonResponse(user_serializer.data, status=status.HTTP_204_NO_CONTENT)
+                return HttpResponse(status=status.HTTP_204_NO_CONTENT)
             else:
                 return JsonResponse(user_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         elif self.method == 'DELETE':
             if user.role.name == 'ADMIN':
                 user.is_active = False
                 user.save()
-                return JsonResponse({'message': 'User was deleted successfully!'}, status=status.HTTP_204_NO_CONTENT)
+                return HttpResponse(status=status.HTTP_204_NO_CONTENT)
             return JsonResponse({'message': 'Permission Denied!'}, status=status.HTTP_401_UNAUTHORIZED)
 
     # ------- Image view -------------------
@@ -80,22 +81,27 @@ class SlqeApi(APIView):
     @api_view(['GET', 'DELETE'])
     def images_detail(self, user_id, image_id):
         try:
-            User.objects.get(id=user_id, is_active=True)
+            user = User.objects.get(id=user_id, is_active=True)
         except User.DoesNotExist:
             return JsonResponse({'message': 'The user does not exist'}, status=status.HTTP_404_NOT_FOUND)
         try:
             image = Image.objects.get(id=image_id)
         except Image.DoesNotExist:
             return JsonResponse({'message': 'The image does not exist'}, status=status.HTTP_404_NOT_FOUND)
-        if image.user.id != user_id:
+        if image.user.id != user.id:
             return JsonResponse({"message": "Unauthorized"}, status=status.HTTP_401_UNAUTHORIZED)
+        # config s3 amazon
+        s3 = boto3.resource('s3', aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+                                aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY)
+        bucket = s3.Bucket(settings.AWS_STORAGE_BUCKET_NAME)
+        obj = bucket.Object(image.url)
         if self.method == 'GET':
             image_serializer = ImageSerializer(image)
             return JsonResponse(image_serializer.data, safe=False)
         elif self.method == 'DELETE':
             obj.delete()
             image.delete()
-            return JsonResponse({'message': 'Image was deleted successfully!'}, status=status.HTTP_204_NO_CONTENT)
+            return HttpResponse(status=status.HTTP_204_NO_CONTENT)
 
     @api_view(['GET', 'POST'])
     def user_images(self, user_id):
@@ -108,10 +114,10 @@ class SlqeApi(APIView):
             image_serializer = ImageSerializer(images, many=True)
             return JsonResponse(image_serializer.data, safe=False)
         elif self.method == 'POST':
-            #get file object
+            # get file object
             file_obj = self.FILES['file']
             try:
-                PIL.Image.open(file_obj)
+                image = PIL.Image.open(file_obj)
             except UnidentifiedImageError:
                 return JsonResponse({"message": "An application require a image to recognize"},
                                     status=status.HTTP_400_BAD_REQUEST)
@@ -124,13 +130,15 @@ class SlqeApi(APIView):
             bucket = s3.Bucket(settings.AWS_STORAGE_BUCKET_NAME)
             bucket.put_object(Key=filename + "_" + str(now), Body=file_obj)
             # location = boto3.client('s3').get_bucket_location(Bucket=settings.AWS_STORAGE_BUCKET_NAME)['LocationConstraint']
-            url = "https://s3-%s.amazonaws.com/%s/%s" % (settings.AWS_LOCATION, settings.AWS_STORAGE_BUCKET_NAME, filename)
-            #insert data into database
-            image = Image.create(user=user, url=url, date_time=now)
+            url = "https://s3-%s.amazonaws.com/%s/%s" % (
+            settings.AWS_LOCATION, settings.AWS_STORAGE_BUCKET_NAME, filename)
+            # solver
+            parsed_array = asarray(image)
+            parsed_array = cv2.cvtColor(parsed_array, cv2.COLOR_RGB2BGR)
+
+            valid, message, expression, latex, roots = algorithm.process(parsed_array)
+            # insert data into database
+            image = Image.create(user=user, url=url, date_time=now, expression=expression, latex=latex, roots=roots)
             image_serializer = ImageSerializer(image)
             image.save()
             return JsonResponse(image_serializer.data, status=status.HTTP_201_CREATED)
-
-
-
-
