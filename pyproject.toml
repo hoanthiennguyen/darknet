@@ -8,6 +8,7 @@ authors = ["Your Name <you@example.com>"]
 python = "^3.8"
 opencv-python = "^4.5.1"
 pytexit = "^0.3.4"
+matplotlib = "^3.3.4"
 
 [tool.poetry.dev-dependencies]
 

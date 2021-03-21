@@ -1607,14 +1607,14 @@ class Tests(unittest.TestCase):
         ]
         self.assertEqual(convert_detections_to_expression(detections), "12^(3+2)")
 
-    # def test_operator_inline(self):
-    # previous_element = Element("3", 0, 0, box=(0.344498, 0.255814, 0.068900, 0.236434))
-    # current_element = Element("+", 1, 1, box=(0.429665, 0.304264, 0.055502, 0.093023))
-    # self.assertEqual(is_operator_inline(previous_element, current_element), True)
+    def test_operator_inline(self):
+        previous_element = Element("3", box=Box(0.344498, 0.255814, 0.068900, 0.236434))
+        current_element = Element("+", box=Box(0.429665, 0.304264, 0.055502, 0.093023))
+        self.assertEqual(is_operator_inline(previous_element, current_element), True)
 
-    # previous_element = Element(")", 0, 0, box=(0.459770, 0.059175, 0.007315, 0.096634))
-    # current_element = Element("-", 1, 1, box=(0.499478, 0.110749, 0.032393, 0.030402))
-    # self.assertEqual(is_operator_inline(previous_element, current_element), False)
+        previous_element = Element(")", box=Box(0.459770, 0.059175, 0.007315, 0.096634))
+        current_element = Element("-", box=Box(0.499478, 0.110749, 0.032393, 0.030402))
+        self.assertEqual(is_operator_inline(previous_element, current_element), False)
 
     def test_exponent_operator(self):
         # IMG_2420
