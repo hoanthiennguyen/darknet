@@ -40,7 +40,7 @@ class SlqeApi(APIView):
     @api_view(['GET', 'PUT', 'DELETE'])
     def user_detail(self, user_id):
         try:
-            user = User.objects.get(id=user_id, is_active=True)
+            user = User.objects.get(id=user_id)
             user_serializer = UserSerializer(user)
         except User.DoesNotExist:
             return JsonResponse({'message': 'The user does not exist'}, status=status.HTTP_404_NOT_FOUND)
@@ -89,16 +89,9 @@ class SlqeApi(APIView):
             return JsonResponse({'message': 'The image does not exist'}, status=status.HTTP_404_NOT_FOUND)
         if image.user.id != user_id:
             return JsonResponse({"message": "Unauthorized"}, status=status.HTTP_401_UNAUTHORIZED)
-
-        #config s3 amazon
-        s3 = boto3.resource('s3', aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-                            aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY)
-        bucket = s3.Bucket(settings.AWS_STORAGE_BUCKET_NAME)
-        obj = bucket.Object(image.url)
-
         if self.method == 'GET':
-            obj_data = obj.get()['Body'].read()
-            return HttpResponse(obj_data, content_type='application/octet-stream', status=status.HTTP_200_OK)
+            image_serializer = ImageSerializer(image)
+            return JsonResponse(image_serializer.data, safe=False)
         elif self.method == 'DELETE':
             obj.delete()
             image.delete()
@@ -130,13 +123,12 @@ class SlqeApi(APIView):
                                 aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY)
             bucket = s3.Bucket(settings.AWS_STORAGE_BUCKET_NAME)
             bucket.put_object(Key=filename + "_" + str(now), Body=file_obj)
-
+            # location = boto3.client('s3').get_bucket_location(Bucket=settings.AWS_STORAGE_BUCKET_NAME)['LocationConstraint']
+            url = "https://s3-%s.amazonaws.com/%s/%s" % (settings.AWS_LOCATION, settings.AWS_STORAGE_BUCKET_NAME, filename)
             #insert data into database
-            image = Image.create(user=user, url=filename, date_time=now)
-            print(image.date_time)
+            image = Image.create(user=user, url=url, date_time=now)
             image_serializer = ImageSerializer(image)
             image.save()
-            print(image.date_time)
             return JsonResponse(image_serializer.data, status=status.HTTP_201_CREATED)
 
 
