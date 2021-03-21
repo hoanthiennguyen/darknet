@@ -549,35 +549,13 @@ def is_opening_bracket(token: str) -> bool:
     return token in ["{", "[", "("]
 
 
-# Function to check if an array is
-# subarray of another array
-def is_sub_array(a, b, n, m):
-    # Two pointers to traverse the arrays
-    i = 0
-    j = 0
+def is_sub_fraction(super_fraction_element: List[Element], sub_fraction_element: List[Element]):
+    count = 0
+    for element in sub_fraction_element:
+        if element in super_fraction_element:
+            count += 1
 
-    # Traverse both arrays simultaneously
-    while i < n and j < m:
-
-        # If element matches
-        # increment both pointers
-        if a[i] == b[j]:
-
-            i += 1
-            j += 1
-
-            # If array B is completely
-            # traversed
-            if j == m:
-                return True
-
-                # If not,
-        # increment i and reset j
-        else:
-            i = i - j + 1
-            j = 0
-
-    return False
+    return count == len(sub_fraction_element)
 
 
 def get_all_fractions(list_element: List[Element]) -> List[Fraction]:
@@ -598,9 +576,7 @@ def get_all_fractions(list_element: List[Element]) -> List[Fraction]:
         if item not in removed_list:
             between_item = []
             for x in list_fractions:
-                # if item.start_index <= x.start_index and x.end_index <= item.end_index and x not in removed_list and x != item:
-                if is_sub_array(item.list_element, x.list_element, len(item.list_element),
-                                len(x.list_element)) and x not in removed_list and x != item:
+                if is_sub_fraction(item.list_element, x.list_element) and x not in removed_list and x != item:
                     between_item.append(x)
             removed_list = removed_list + between_item
 
