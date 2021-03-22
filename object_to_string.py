@@ -473,7 +473,7 @@ def get_fraction_by_index_of_element(list_all_fraction: list, index: int) -> Fra
 
 
 def normalize_all_factor(polynomial: str) -> str:
-    factor_stack = []
+    factor = ""
     poly = ""
     index = 0
     lengh = len(polynomial)
@@ -483,19 +483,17 @@ def normalize_all_factor(polynomial: str) -> str:
         current_char = polynomial[index] if index < lengh else ""
         index += 1
         if current_char.isdigit() or is_comma(current_char):
-            if len(factor_stack) > 0:
-                factor = factor_stack.pop()
+            if factor:
                 factor += current_char
-                factor_stack.append(factor)
             else:
-                factor_stack.append(current_char)
+                factor = current_char
         else:
-            if len(factor_stack) > 0:
-                factor = factor_stack.pop()
+            if factor:
                 factor = factor.lstrip('0')
                 if factor == '' or is_comma(factor[0]):
                     factor = f'0{factor}'
                 poly += f'{factor}{current_char}'
+                factor = ""
             else:
                 poly += current_char
 
