@@ -5,6 +5,7 @@ import math
 from pathlib import Path
 from matplotlib.afm import AFM
 from typing import List
+import os
 
 superscript_threshold = 1 / 2
 quarter_superscript_threshold = 1 / 4
@@ -241,7 +242,10 @@ def is_small_exponent(base_element: Element, exponent_element: Element):
 
     if (base_label.isdigit() or base_label.isalpha()) \
             and (exponent_label.isalpha() or exponent_label.isdigit()):
-        afm_path = Path('Times-Roman.afm')
+        script_dir = os.path.dirname(__file__)
+        rel_path = "Times-Roman.afm"
+        abs_file_path = os.path.join(script_dir, rel_path)
+        afm_path = Path(abs_file_path)
         with afm_path.open('rb') as fh:
             afm = AFM(fh)
 
