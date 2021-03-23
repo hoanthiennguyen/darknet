@@ -14,7 +14,7 @@ class Role(models.Model):
 class User(models.Model):
     id = models.AutoField(primary_key=True)
     email = models.CharField(max_length=255, null=True)
-    uid = models.CharField(max_length=255, null=True)
+    uid = models.CharField(max_length=255, null=True, unique=True)
     password = models.CharField(max_length=255, null=True)
     role = models.ForeignKey(Role, on_delete=models.CASCADE)
     phone = models.CharField(max_length=255, null=True)

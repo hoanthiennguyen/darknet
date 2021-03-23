@@ -36,7 +36,7 @@ class SlqeApi(APIView):
             if user_serializer.is_valid():
                 user_serializer.save()
                 return JsonResponse(user_serializer.data, status=status.HTTP_201_CREATED)
-            return JsonResponse(user_serializer.errors, status=status.HTTP_200_OK)
+            return JsonResponse(user_serializer.data, status=status.HTTP_200_OK)
 
     @api_view(['GET', 'PUT', 'DELETE'])
     def user_detail(self, user_id):
