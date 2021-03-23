@@ -31,7 +31,7 @@ def parser():
                             help="path to config file")
     cmd_parser.add_argument("--data_file", default="yolo.data",
                             help="path to data file")
-    cmd_parser.add_argument("--thresh", type=float, default=.25,
+    cmd_parser.add_argument("--thresh", type=float, default=.50,
                             help="remove detections with lower confidence")
     return cmd_parser.parse_args()
 
@@ -200,7 +200,7 @@ def main():
             image, detections = image_detection(
                 image_name, network, class_names, class_colors, args.thresh
             )
-            expression = get_expression(detections)
+            expression = convert_detections_to_expression(detections)
             print(expression)
 
             save_annotations(image_name, image, detections, class_names, output_dir)
@@ -218,7 +218,7 @@ def main():
             cv2.imshow('Inference', image)
             cv2.waitKey()
 
-        expression = get_expression(detections)
+        expression = convert_detections_to_expression(detections)
         expression = normalize_expression(expression)
         print(expression)
 
