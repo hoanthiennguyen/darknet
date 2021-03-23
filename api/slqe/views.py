@@ -138,7 +138,7 @@ class SlqeApi(APIView):
 
             valid, message, expression, latex, roots = algorithm.process(parsed_array)
             # insert data into database
-            image = Image.create(user=user, url=url, date_time=now, expression=expression, latex=latex, roots=roots)
+            image = Image.create(user=user, url=url, date_time=now, expression=expression, latex=latex, roots=roots, success=valid, message=message)
             image_serializer = ImageSerializer(image)
             image.save()
             return JsonResponse(image_serializer.data, status=status.HTTP_201_CREATED)

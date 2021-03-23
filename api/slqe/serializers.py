@@ -25,4 +25,6 @@ class ImageSerializer(serializers.ModelSerializer):
                   'date_time',
                   'expression',
                   'latex',
-                  'roots')
+                  'roots',
+                  'success',
+                  'message')

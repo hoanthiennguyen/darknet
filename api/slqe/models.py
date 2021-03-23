@@ -13,12 +13,12 @@ class Role(models.Model):
 
 class User(models.Model):
     id = models.AutoField(primary_key=True)
-    email = models.CharField(max_length=255, unique=True)
+    email = models.CharField(max_length=255, null=True)
     uid = models.CharField(max_length=255, null=True)
     password = models.CharField(max_length=255, null=True)
     role = models.ForeignKey(Role, on_delete=models.CASCADE)
-    phone = models.CharField(max_length=255)
-    avatar_url = models.CharField(max_length=255)
+    phone = models.CharField(max_length=255, null=True)
+    avatar_url = models.CharField(max_length=255, null=True)
     name = models.CharField(max_length=255)
     is_active = models.BooleanField(default=True, null=True)
 
@@ -40,14 +40,16 @@ class Image(models.Model):
         default=None
         # 6 * 10 character nominals, plus commas
     )
+    success = models.BooleanField(default=True)
+    message = models.CharField(max_length=255, default='')
 
     class Meta:
         db_table = 'image'
 
     @classmethod
-    def create(cls, user, url, date_time, expression, latex, roots):
+    def create(cls, user, url, date_time, expression, latex, roots, success, message):
         return cls(user=user, url=url + "_" + str(date_time), date_time=date_time, expression=expression,
-                   latex=latex, roots=roots)
+                   latex=latex, roots=roots, success=success, message=message)
 
 
 class ClassVersion(models.Model):
