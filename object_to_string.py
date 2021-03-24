@@ -111,8 +111,7 @@ def get_expression(list_element: List[Element]) -> str:
             result += current_element.expression
             if i + 1 < length:
                 next_of_exponent_element = list_element[i + 1]
-                if not is_operators(next_of_exponent_element.expression) or isinstance(next_of_exponent_element,
-                                                                                       Fraction):
+                if not is_operators(next_of_exponent_element.expression):
                     result += "."
         elif isinstance(current_element, Fraction):
             # add () for fraction, Ex x/2*3 => (x/2)*3
@@ -374,7 +373,7 @@ def operator_is_exponent(base_element: Element, next_element: Element):
     return True
 
 
-def get_exponent(list_element: List[Element], base_element: Element, index: int) -> int:
+def get_end_index_of_exponent(list_element: List[Element], base_element: Element, index: int) -> int:
     end_of_script = index_to_compare = index
     length = len(list_element)
     # get subscript or superscript
@@ -416,10 +415,10 @@ def get_exponent(list_element: List[Element], base_element: Element, index: int)
 
         # get index to compare, and end_of_script if current label is exponent
         if is_exponent(previous_element, current_element):
-            end_of_script = get_exponent(list_element, previous_element, end_of_script_temp)
+            end_of_script = get_end_index_of_exponent(list_element, previous_element, end_of_script_temp)
         else:
             if is_small_exponent(previous_element, current_element):
-                end_of_script = get_exponent(list_element, previous_element, end_of_script_temp)
+                end_of_script = get_end_index_of_exponent(list_element, previous_element, end_of_script_temp)
             else:
                 end_of_script = end_of_script_temp
                 index_to_compare = end_of_script
@@ -446,15 +445,15 @@ def get_all_exponent(list_element: List[Element]) -> List[Exponent]:
                             continue
 
                 # get exponent
-                exponent = get_exponent_expression(list_element, current_element, i + 1)
+                exponent = get_exponent(list_element, current_element, i + 1)
                 result.append(exponent)
                 remove_list = remove_list + exponent.list_element
 
     return result
 
 
-def get_exponent_expression(list_element: List[Element], base_element: Element, index: int) -> Exponent:
-    end_of_script = get_exponent(list_element, base_element, index)
+def get_exponent(list_element: List[Element], base_element: Element, index: int) -> Exponent:
+    end_of_script = get_end_index_of_exponent(list_element, base_element, index)
     list_exponent = []
     for i in range(index, end_of_script + 1):
         list_exponent.append(list_element[i])
@@ -601,7 +600,7 @@ def get_all_fractions(list_element: List[Element]) -> List[Fraction]:
     for i in range(0, length):
         label = list_element[i].expression
         if label == '-':
-            fraction = get_fraction_expression(list_element, i)
+            fraction = get_fraction(list_element, i)
             if fraction is not None:
                 list_fractions.append(fraction)
 
@@ -622,7 +621,7 @@ def get_all_fractions(list_element: List[Element]) -> List[Fraction]:
     return list_unique_min_index
 
 
-def get_fraction_expression(list_element: List[Element], index_of_fraction_sign: int) -> Fraction or None:
+def get_fraction(list_element: List[Element], index_of_fraction_sign: int) -> Fraction or None:
     length = len(list_element)
 
     fraction_sign_box = list_element[index_of_fraction_sign].box
@@ -1308,8 +1307,8 @@ class Tests(unittest.TestCase):
         ]
         detections.sort(key=lambda x: x[2][0] - x[2][2] / 2)
         list_element = convert_list_detection_to_list_element(detections)
-        self.assertEqual(get_exponent_expression(list_element,
-                                                 Element(box=get_box(detections[0]), expression="x"), 1),
+        self.assertEqual(get_exponent(list_element,
+                                      Element(box=get_box(detections[0]), expression="x"), 1),
                          Exponent("x^12"))
         # Untitled5.png
         detections = [
@@ -1327,7 +1326,7 @@ class Tests(unittest.TestCase):
         detections.sort(key=lambda x: x[2][0] - x[2][2] / 2)
         list_element = convert_list_detection_to_list_element(detections)
         self.assertEqual(
-            get_exponent_expression(list_element, Element(box=get_box(detections[0]), expression="x"), 1),
+            get_exponent(list_element, Element(box=get_box(detections[0]), expression="x"), 1),
             Exponent("x^(y^2+3y+1)"))
 
     def test_get_all_numerator_and_denominator(self):
@@ -1348,11 +1347,11 @@ class Tests(unittest.TestCase):
         ]
         detections.sort(key=lambda x: x[2][0] - x[2][2] / 2)
         list_element = convert_list_detection_to_list_element(detections)
-        self.assertEqual(get_fraction_expression(list_element, 0), Fraction("1/2"))
+        self.assertEqual(get_fraction(list_element, 0), Fraction("1/2"))
 
-        self.assertEqual(get_fraction_expression(list_element, 5), None)
+        self.assertEqual(get_fraction(list_element, 5), None)
 
-        self.assertEqual(get_fraction_expression(list_element, 8), Fraction("(x^2)/3"))
+        self.assertEqual(get_fraction(list_element, 8), Fraction("(x^2)/3"))
 
         # frac2
         detections = [
@@ -1382,7 +1381,7 @@ class Tests(unittest.TestCase):
         ]
         detections.sort(key=lambda x: x[2][0] - x[2][2] / 2)
         list_element = convert_list_detection_to_list_element(detections)
-        self.assertEqual(get_fraction_expression(list_element, 8),
+        self.assertEqual(get_fraction(list_element, 8),
                          Fraction("(x^2+(1/x)x)/((3/2)x^3-1)"))
         # frac3
         detections = [
@@ -1411,7 +1410,7 @@ class Tests(unittest.TestCase):
         ]
         detections.sort(key=lambda x: x[2][0] - x[2][2] / 2)
         list_element = convert_list_detection_to_list_element(detections)
-        self.assertEqual(get_fraction_expression(list_element, 3), Fraction("(3+x^2-(1/2)x)/(3/(x^3)+2x-3+5x)"))
+        self.assertEqual(get_fraction(list_element, 3), Fraction("(3+x^2-(1/2)x)/(3/(x^3)+2x-3+5x)"))
 
     def test_get_all_fractions(self):
         # frac1
@@ -1672,6 +1671,28 @@ class Tests(unittest.TestCase):
         self.assertEqual(is_operator_inline(previous_element, current_element), False)
 
     def test_exponent_operator(self):
+        # document
+        detections = [
+            ("2", 0.4, (0.055394, 0.419795, 0.049563, 0.177474)),
+            ("x", 0.4, (0.106414, 0.441980, 0.055394, 0.126280)),
+            ("x", 0.4, (0.153790, 0.365188, 0.048105, 0.095563)),
+            ("3", 0.4, (0.193149, 0.295222, 0.036443, 0.092150)),
+            ("-", 0.4, (0.245627, 0.356655, 0.051020, 0.044369)),
+            ("1", 0.4, (0.293003, 0.343003, 0.034985, 0.133106)),
+            ("0", 0.4, (0.332362, 0.344710, 0.040816, 0.136519)),
+            ("-", 0.4, (0.413265, 0.431741, 0.065598, 0.051195)),
+            ("x", 0.4, (0.510204, 0.295222, 0.055394, 0.133106)),
+            ("3", 0.4, (0.555394, 0.208191, 0.040816, 0.122867)),
+            ("+", 0.4, (0.640671, 0.279863, 0.071429, 0.184300)),
+            ("2", 0.4, (0.720117, 0.267918, 0.046647, 0.174061)),
+            ("-", 0.4, (0.614431, 0.435154, 0.272595, 0.058020)),
+            ("2", 0.4, (0.616618, 0.569966, 0.052478, 0.177474)),
+            ("=", 0.4, (0.819242, 0.435154, 0.078717, 0.085324)),
+            ("1", 0.4, (0.907434, 0.418089, 0.039359, 0.180887)),
+            ("0", 0.4, (0.956268, 0.418089, 0.049563, 0.180887)),
+        ]
+        self.assertEqual(convert_detections_to_expression(detections), "2x^(x^3-10)-(x^3+2)/2=10")
+
         # IMG_2420
         detections = [
             ("2", 0.4, (0.2739, 0.4695, 0.0952, 0.2817)),
