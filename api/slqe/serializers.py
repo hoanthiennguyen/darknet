@@ -7,6 +7,8 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = ('id',
                   'email',
+                  'uid',
+                  'password',
                   'phone',
                   'avatar_url',
                   'name',
@@ -14,10 +16,20 @@ class UserSerializer(serializers.ModelSerializer):
                   'is_active')
 
 
-class ImageSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Image
-        fields = ('id',
-                  'user',
-                  'url',
-                  'date_time')
+class ImageSerializer(serializers.Serializer):
+    def create(self, validated_data):
+        serializers.ModelSerializer.create(validated_data)
+
+    def update(self, instance, validated_data):
+        serializers.ModelSerializer.update(validated_data)
+
+    id = serializers.IntegerField()
+    user = serializers.IntegerField(source='user.id')
+    url = serializers.CharField()
+    date_time = serializers.DateTimeField()
+    expression = serializers.CharField()
+    latex = serializers.CharField()
+    roots = serializers.ListSerializer(child=serializers.CharField())
+    success = serializers.BooleanField()
+    message = serializers.CharField()
+
