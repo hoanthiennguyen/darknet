@@ -8,11 +8,11 @@ from typing import List
 import os
 
 superscript_threshold = 1 / 2
-quarter_superscript_threshold = 1 / 4
+quarter_superscript_threshold = 1 / 4 * 1.5
 subscript_threshold = 0.6
 exponent_angle_threshold = 20
 label_with_sub_threshold = 0.7
-exponent_base_size_ratio_threshold = 0.7
+exponent_base_size_ratio_threshold = 0.6
 inline_operator_threshold = 0.3
 
 
