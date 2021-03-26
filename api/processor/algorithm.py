@@ -33,7 +33,7 @@ def normalize_before_solve(expression: str):
     elif first_char:
         expression = expression.replace(first_char, "x")
 
-    return expression
+    return expression, first_char
 
 
 def process(image):
@@ -57,17 +57,24 @@ def process(image):
     try:
         latex = convert_infix_to_latex(expression)
         try:
-            expression_to_solve = normalize_before_solve(expression)
+            expression_to_solve, variable = normalize_before_solve(expression)
             roots = solve.parse_and_solve_and_round(expression_to_solve, 0.00001)
+            if roots:
+                if roots != ["Infinite roots"]:
+                    roots = list(map(lambda x: variable + " = " + str(x), roots))
+            else:
+                roots = ["No roots"]
             valid = True
             print(roots)
-        except (ExpressionSyntaxError, EvaluationError, RecursionError) as e:
+        except (ExpressionSyntaxError, EvaluationError) as e:
             message = str(e)
-    except (SyntaxError, IndexError, Exception):
+    except RecursionError:
+        message = "Maximum power exceeded"
+    except (SyntaxError, IndexError, Exception) as e:
+        print(e)
         message = "Unrecognized expression"
 
-    if not roots:
-        roots = ["No roots"]
+
 
     return valid, message, expression, latex, roots
 
