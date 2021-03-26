@@ -83,7 +83,8 @@ def solve_from_derivative_roots(polynomial, epsilon, derivative_roots):
 
         upper_bound = get_upper_bound_with_opposite_sign(polynomial, derivative_roots[-1])
         if upper_bound is not None:
-            roots.append(find_root_using_bisection(polynomial, epsilon, derivative_roots[-1], upper_bound, upper_included=True))
+            roots.append(find_root_using_bisection(polynomial, epsilon, derivative_roots[-1],
+                                                   upper_bound, upper_included=True))
     else:
         lower_bound = get_lower_bound_with_opposite_sign(polynomial, 0)
         upper_bound = get_upper_bound_with_opposite_sign(polynomial, 0)

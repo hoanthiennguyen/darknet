@@ -110,7 +110,7 @@ class SlqeApi(APIView):
         except User.DoesNotExist:
             return JsonResponse({'message': 'The user does not exist'}, status=status.HTTP_404_NOT_FOUND)
         if self.method == 'GET':
-            images = Image.objects.filter(user=user_id)
+            images = Image.objects.filter(user=user_id).order_by('-date_time')
             image_serializer = ImageSerializer(images, many=True)
             return JsonResponse(image_serializer.data, safe=False)
         elif self.method == 'POST':
