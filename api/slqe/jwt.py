@@ -21,5 +21,17 @@ def verify(token):
     return True
 
 
+def permission(token, roles):
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms='HS256')
+        user = User.objects.get(uid=payload['id'], is_active=True)
+
+        if user.role.name in roles:
+            return True
+    except:
+        return False
+    return False
+
+
 class JWTAuthentication:
     pass

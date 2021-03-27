@@ -17,7 +17,7 @@ from rest_framework.parsers import *
 from rest_framework.views import *
 from slqe.serializers import *
 
-from slqe.jwt import verify
+from slqe.jwt import *
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +28,18 @@ class SlqeApi(APIView):
     @api_view(['GET', 'POST'])
     def user_list(self):
         if self.method == 'GET':
+            # get token from header
+            token = self.META.get('HTTP_AUTHORIZATION')
+            # check authenication
+            flag_verify = verify(token=token)
+            if not flag_verify:
+                return HttpResponse(status=status.HTTP_401_UNAUTHORIZED)
+
+            # check authorization
+            role = ("ADMIN")
+            flag_permission = permission(token, role)
+            if not flag_permission:
+                return HttpResponse(status=status.HTTP_403_FORBIDDEN)
             name = self.GET.get('name')
             limit = self.GET.get('limit')
             offset = self.GET.get('offset')
@@ -67,18 +79,44 @@ class SlqeApi(APIView):
 
     @api_view(['GET', 'PUT', 'DELETE'])
     def user_detail(self, user_id):
-        try:
-            token = self.META.get('HTTP_AUTHORIZATION')
-            flag_verify = verify(token=token)
-            if not flag_verify:
-                return HttpResponse(status=status.HTTP_401_UNAUTHORIZED)
-            user = User.objects.get(pk=user_id)
-            user_serializer = UserSerializer(user)
-        except:
-            return HttpResponse(status=status.HTTP_404_NOT_FOUND)
+        # get token from header
+        token = self.META.get('HTTP_AUTHORIZATION')
+        # check authenication
+        flag_verify = verify(token=token)
+        if not flag_verify:
+            return HttpResponse(status=status.HTTP_401_UNAUTHORIZED)
         if self.method == 'GET':
+            try:
+                # check authorization
+                role = ("CUSTOMER", "ADMIN")
+                flag_permission = permission(token, role)
+                if not flag_permission:
+                    return HttpResponse(status=status.HTTP_403_FORBIDDEN)
+
+                payload = jwt.decode(token, settings.SECRET_KEY, algorithms='HS256')
+                user_access = User.objects.get(uid=payload['id'], is_active=True)
+
+                user = User.objects.get(pk=user_id)
+                user_serializer = UserSerializer(user)
+
+                #only owner user can access resources
+                if(user_access.role.name == "CUSTOMER"):
+                    if user_access.id != user.id:
+                        return HttpResponse(status=status.HTTP_401_UNAUTHORIZED)
+            except:
+                return HttpResponse(status=status.HTTP_404_NOT_FOUND)
             return JsonResponse(user_serializer.data, safe=False)
         elif self.method == 'PUT':
+            try:
+                # check authorization
+                role = ("ADMIN")
+                flag_permission = permission(token, role)
+                if not flag_permission:
+                    return HttpResponse(status=status.HTTP_403_FORBIDDEN)
+
+                user = User.objects.get(pk=user_id)
+            except:
+                return HttpResponse(status=status.HTTP_404_NOT_FOUND)
             user_data = JSONParser().parse(self)
             user_serializer = UserSerializer(user, data=user_data)
             if user_serializer.is_valid():
@@ -87,16 +125,37 @@ class SlqeApi(APIView):
             else:
                 return JsonResponse(user_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         elif self.method == 'DELETE':
-            if user.role.name == 'ADMIN':
-                user.is_active = False
-                user.save()
-                return HttpResponse(status=status.HTTP_204_NO_CONTENT)
-            return JsonResponse({'message': 'Permission Denied!'}, status=status.HTTP_401_UNAUTHORIZED)
+            try:
+                # check authorization
+                role = ("ADMIN")
+                flag_permission = permission(token, role)
+                if not flag_permission:
+                    return HttpResponse(status=status.HTTP_403_FORBIDDEN)
+
+                user = User.objects.get(pk=user_id)
+            except:
+                return HttpResponse(status=status.HTTP_404_NOT_FOUND)
+            user.is_active = False
+            user.save()
+            return HttpResponse(status=status.HTTP_204_NO_CONTENT)
 
     # ------- Image view -------------------
 
     @api_view(['POST'])
     def process_image(self):
+        # get token from header
+        token = self.META.get('HTTP_AUTHORIZATION')
+        # check authenication
+        flag_verify = verify(token=token)
+        if not flag_verify:
+            return HttpResponse(status=status.HTTP_401_UNAUTHORIZED)
+
+        # check authorization
+        role = ("CUSTOMER")
+        flag_permission = permission(token, role)
+        if not flag_permission:
+            return HttpResponse(status=status.HTTP_403_FORBIDDEN)
+
         print(os.getcwd())
         file_obj = self.FILES['file']
         image = PIL.Image.open(file_obj)
@@ -112,6 +171,19 @@ class SlqeApi(APIView):
     @api_view(['GET', 'DELETE'])
     def images_detail(self, user_id, image_id):
         try:
+            # get token from header
+            token = self.META.get('HTTP_AUTHORIZATION')
+            # check authenication
+            flag_verify = verify(token=token)
+            if not flag_verify:
+                return HttpResponse(status=status.HTTP_401_UNAUTHORIZED)
+
+            # check authorization
+            role = ("CUSTOMER")
+            flag_permission = permission(token, role)
+            if not flag_permission:
+                return HttpResponse(status=status.HTTP_403_FORBIDDEN)
+
             user = User.objects.get(id=user_id, is_active=True)
         except User.DoesNotExist:
             return JsonResponse({'message': 'The user does not exist'}, status=status.HTTP_404_NOT_FOUND)
@@ -137,6 +209,19 @@ class SlqeApi(APIView):
     @api_view(['GET', 'POST'])
     def user_images(self, user_id):
         try:
+            # get token from header
+            token = self.META.get('HTTP_AUTHORIZATION')
+            # check authenication
+            flag_verify = verify(token=token)
+            if not flag_verify:
+                return HttpResponse(status=status.HTTP_401_UNAUTHORIZED)
+
+            # check authorization
+            role = ("CUSTOMER")
+            flag_permission = permission(token, role)
+            if not flag_permission:
+                return HttpResponse(status=status.HTTP_403_FORBIDDEN)
+
             user = User.objects.get(id=user_id, is_active=True)
         except User.DoesNotExist:
             return JsonResponse({'message': 'The user does not exist'}, status=status.HTTP_404_NOT_FOUND)
@@ -151,7 +236,7 @@ class SlqeApi(APIView):
             except (MultiValueDictKeyError, UnidentifiedImageError):
                 return JsonResponse({"message": "An application require a image to recognize"},
                                     status=status.HTTP_400_BAD_REQUEST)
-            now = datetime.datetime.now()
+            now = datetime.now()
             url = ""
             parsed_array = asarray(image)
             parsed_array = cv2.cvtColor(parsed_array, cv2.COLOR_RGB2BGR)
