@@ -1,4 +1,4 @@
-import os
+import logging
 from datetime import datetime
 
 import PIL.Image
@@ -7,6 +7,7 @@ import cv2
 from PIL import UnidentifiedImageError
 from django.http.response import *
 from django.utils.datastructures import MultiValueDictKeyError
+from firebase_admin import auth
 from firebase_admin.auth import UserNotFoundError
 from firebase_admin.exceptions import FirebaseError
 from numpy import asarray
@@ -15,8 +16,8 @@ from rest_framework.decorators import api_view
 from rest_framework.parsers import *
 from rest_framework.views import *
 from slqe.serializers import *
-from firebase_admin import auth
-import logging
+
+from slqe.jwt import verify
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +57,7 @@ class SlqeApi(APIView):
                                        phone=user_firebase.phone_number, avatar_url=user_firebase.photo_url,
                                        name=user_firebase.display_name, role=Role.create(role_id=1, name="USER"))
                     user.save()
-                    return JsonResponse(UserSerializer(user).data, status=status.HTTP_201_CREATED, safe=False)
+                    return JsonResponse(user.token, status=status.HTTP_201_CREATED, safe=False)
             except UserNotFoundError:
                 return HttpResponseBadRequest("User not found")
             except (ValueError, KeyError):
@@ -67,10 +68,14 @@ class SlqeApi(APIView):
     @api_view(['GET', 'PUT', 'DELETE'])
     def user_detail(self, user_id):
         try:
-            user = User.objects.get(id=user_id)
+            token = self.META.get('HTTP_AUTHORIZATION')
+            flag_verify = verify(token=token)
+            if not flag_verify:
+                return HttpResponse(status=status.HTTP_401_UNAUTHORIZED)
+            user = User.objects.get(pk=user_id)
             user_serializer = UserSerializer(user)
-        except User.DoesNotExist:
-            return JsonResponse({'message': 'The user does not exist'}, status=status.HTTP_404_NOT_FOUND)
+        except:
+            return HttpResponse(status=status.HTTP_404_NOT_FOUND)
         if self.method == 'GET':
             return JsonResponse(user_serializer.data, safe=False)
         elif self.method == 'PUT':

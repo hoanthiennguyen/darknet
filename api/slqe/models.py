@@ -1,8 +1,12 @@
+from django.conf import settings
 from django.db import models
 from django_mysql.models import ListCharField
-
+import jwt
+from datetime import datetime, timedelta
 
 # Create your models here.
+
+
 class Role(models.Model):
     id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=50)
@@ -25,6 +29,39 @@ class User(models.Model):
     avatar_url = models.CharField(max_length=255, null=True)
     name = models.CharField(max_length=255)
     is_active = models.BooleanField(default=True, null=True)
+
+    def __str__(self):
+        """
+        Returns a string representation of this `User`.
+
+        This string is used when a `User` is printed in the console.
+        """
+        return self.uid
+
+    @property
+    def token(self):
+        """
+        Allows us to get a user's token by calling `user.token` instead of
+        `user.generate_jwt_token().
+
+        The `@property` decorator above makes this possible. `token` is called
+        a "dynamic property".
+        """
+        return self._generate_jwt_token()
+
+    def _generate_jwt_token(self):
+        """
+        Generates a JSON Web Token that stores this user's ID and has an expiry
+        date set to 60 days into the future.
+        """
+        dt = datetime.now() + timedelta(days=360)
+
+        token = jwt.encode({
+            'id': self.uid,
+            'exp': int(dt.strftime('%s'))
+        },settings.SECRET_KEY, algorithm='HS256')
+
+        return token
 
     @classmethod
     def create(cls, email, uid, password, phone, avatar_url, name, role):

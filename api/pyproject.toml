@@ -19,6 +19,7 @@ boto3 = "1.17.23"
 django-storages = "1.11.1"
 django-mysql = "^3.11.1"
 firebase-admin = "^4.5.3"
+PyJWT = "^2.0.1"
 [tool.poetry.dev-dependencies]
 
 [build-system]
