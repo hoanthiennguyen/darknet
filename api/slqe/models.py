@@ -7,6 +7,10 @@ class Role(models.Model):
     id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=50)
 
+    @classmethod
+    def create(cls, role_id, name):
+        return cls(id=role_id, name=name)
+
     class Meta:
         db_table = 'role'
 
@@ -21,6 +25,10 @@ class User(models.Model):
     avatar_url = models.CharField(max_length=255, null=True)
     name = models.CharField(max_length=255)
     is_active = models.BooleanField(default=True, null=True)
+
+    @classmethod
+    def create(cls, email, uid, password, phone, avatar_url, name, role):
+        return cls(email=email, uid=uid, password=password, role=role, phone=phone, avatar_url=avatar_url, name=name)
 
     class Meta:
         db_table = 'user'

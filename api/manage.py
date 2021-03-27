@@ -1,10 +1,12 @@
 #!/usr/bin/env python
 import os
 import sys
+import firebase_admin
 
 if __name__ == "__main__":
     os.environ.setdefault("DJANGO_SETTINGS_MODULE", "capstone_project.settings")
     try:
+        default_app = firebase_admin.initialize_app()
         from django.core.management import execute_from_command_line
     except ImportError:
         # The above import may fail for some other reason. Ensure that the
