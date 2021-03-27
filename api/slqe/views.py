@@ -6,6 +6,7 @@ import boto3
 import cv2
 from PIL import UnidentifiedImageError
 from django.http.response import *
+from django.utils.datastructures import MultiValueDictKeyError
 from firebase_admin.auth import UserNotFoundError
 from firebase_admin.exceptions import FirebaseError
 from numpy import asarray
@@ -125,33 +126,34 @@ class SlqeApi(APIView):
             image_serializer = ImageSerializer(images, many=True)
             return JsonResponse(image_serializer.data, safe=False)
         elif self.method == 'POST':
-            # get file object
-            file_obj = self.FILES['file']
             try:
+                file_obj = self.FILES['file']
                 image = PIL.Image.open(file_obj)
-            except UnidentifiedImageError:
+            except (MultiValueDictKeyError, UnidentifiedImageError):
                 return JsonResponse({"message": "An application require a image to recognize"},
                                     status=status.HTTP_400_BAD_REQUEST)
-            filename = file_obj.name
             now = datetime.datetime.now()
-            # upload file to s3 storage
-            file_obj.seek(0, 0)
-            s3 = boto3.resource('s3', aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-                                aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY)
-            bucket = s3.Bucket(settings.AWS_STORAGE_BUCKET_NAME)
-            bucket.put_object(Key=filename + "_" + str(now), Body=file_obj)
-            # location = boto3.client('s3').get_bucket_location(Bucket=settings.AWS_STORAGE_BUCKET_NAME)[
-            # 'LocationConstraint']
-            url = "https://s3-%s.amazonaws.com/%s/%s" % (
-                settings.AWS_LOCATION, settings.AWS_STORAGE_BUCKET_NAME, filename)
-            # solver
+            url = ""
             parsed_array = asarray(image)
             parsed_array = cv2.cvtColor(parsed_array, cv2.COLOR_RGB2BGR)
-
             valid, message, expression, latex, roots = algorithm.process(parsed_array)
-            # insert data into database
-            image = Image.create(user=user, url=url, date_time=now, expression=expression, latex=latex, roots=roots,
-                                 success=valid, message=message)
-            image_serializer = ImageSerializer(image)
-            image.save()
+
+            if self.POST and self.POST['save'] and self.POST['save'] == '1':
+                filename = file_obj.name
+                file_obj.seek(0, 0)
+                s3 = boto3.resource('s3', aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+                                    aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY)
+                bucket = s3.Bucket(settings.AWS_STORAGE_BUCKET_NAME)
+                bucket.put_object(Key=filename + "_" + str(now), Body=file_obj)
+                url = "https://s3-%s.amazonaws.com/%s/%s" % (
+                    settings.AWS_LOCATION, settings.AWS_STORAGE_BUCKET_NAME, filename)
+                image_model = Image.create(user=user, url=url, date_time=now, expression=expression, latex=latex,
+                                           roots=roots, success=valid, message=message)
+                image_model.save()
+                image_serializer = ImageSerializer(image_model)
+            else:
+                image_model = Image.create(user=user, url=url, date_time=now, expression=expression, latex=latex,
+                                           roots=roots, success=valid, message=message)
+                image_serializer = ImageSerializer(image_model)
+
             return JsonResponse(image_serializer.data, status=status.HTTP_201_CREATED)
