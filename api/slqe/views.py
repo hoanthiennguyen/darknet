@@ -27,7 +27,21 @@ class SlqeApi(APIView):
     @api_view(['GET', 'POST'])
     def user_list(self):
         if self.method == 'GET':
-            users = User.objects.all()
+            name = self.GET.get('name')
+            limit = self.GET.get('limit')
+            offset = self.GET.get('offset')
+            if not limit:
+                limit = 10
+            else:
+                limit = int(limit)
+            if not offset:
+                offset = 0
+            else:
+                offset = int(offset)
+            if name:
+                users = User.objects.filter(name__icontains=name)[offset:offset+limit]
+            else:
+                users = User.objects.all()[offset:offset+limit]
             user_serializer = UserSerializer(users, many=True)
             return JsonResponse(user_serializer.data, safe=False)
         elif self.method == 'POST':
