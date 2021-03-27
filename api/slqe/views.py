@@ -110,7 +110,7 @@ class SlqeApi(APIView):
         except User.DoesNotExist:
             return JsonResponse({'message': 'The user does not exist'}, status=status.HTTP_404_NOT_FOUND)
         if self.method == 'GET':
-            images = Image.objects.filter(user=user_id)
+            images = Image.objects.filter(user=user_id).order_by('-date_time')
             image_serializer = ImageSerializer(images, many=True)
             return JsonResponse(image_serializer.data, safe=False)
         elif self.method == 'POST':
@@ -129,16 +129,18 @@ class SlqeApi(APIView):
                                 aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY)
             bucket = s3.Bucket(settings.AWS_STORAGE_BUCKET_NAME)
             bucket.put_object(Key=filename + "_" + str(now), Body=file_obj)
-            # location = boto3.client('s3').get_bucket_location(Bucket=settings.AWS_STORAGE_BUCKET_NAME)['LocationConstraint']
+            # location = boto3.client('s3').get_bucket_location(Bucket=settings.AWS_STORAGE_BUCKET_NAME)[
+            # 'LocationConstraint']
             url = "https://s3-%s.amazonaws.com/%s/%s" % (
-            settings.AWS_LOCATION, settings.AWS_STORAGE_BUCKET_NAME, filename)
+                settings.AWS_LOCATION, settings.AWS_STORAGE_BUCKET_NAME, filename)
             # solver
             parsed_array = asarray(image)
             parsed_array = cv2.cvtColor(parsed_array, cv2.COLOR_RGB2BGR)
 
             valid, message, expression, latex, roots = algorithm.process(parsed_array)
             # insert data into database
-            image = Image.create(user=user, url=url, date_time=now, expression=expression, latex=latex, roots=roots, success=valid, message=message)
+            image = Image.create(user=user, url=url, date_time=now, expression=expression, latex=latex, roots=roots,
+                                 success=valid, message=message)
             image_serializer = ImageSerializer(image)
             image.save()
             return JsonResponse(image_serializer.data, status=status.HTTP_201_CREATED)

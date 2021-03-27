@@ -74,8 +74,6 @@ def process(image):
         print(e)
         message = "Unrecognized expression"
 
-
-
     return valid, message, expression, latex, roots
 
 
