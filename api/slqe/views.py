@@ -1,4 +1,4 @@
-import os
+import logging
 from datetime import datetime
 
 import PIL.Image
@@ -7,6 +7,7 @@ import cv2
 from PIL import UnidentifiedImageError
 from django.http.response import *
 from django.utils.datastructures import MultiValueDictKeyError
+from firebase_admin import auth
 from firebase_admin.auth import UserNotFoundError
 from firebase_admin.exceptions import FirebaseError
 from numpy import asarray
@@ -15,8 +16,8 @@ from rest_framework.decorators import api_view
 from rest_framework.parsers import *
 from rest_framework.views import *
 from slqe.serializers import *
-from firebase_admin import auth
-import logging
+
+from slqe.jwt_utils import *
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +28,18 @@ class SlqeApi(APIView):
     @api_view(['GET', 'POST'])
     def user_list(self):
         if self.method == 'GET':
+            # get token from header
+            token = self.META.get('HTTP_AUTHORIZATION')
+            # check authentication
+            flag_verify = is_verified(token=token)
+            if not flag_verify:
+                return HttpResponse(status=status.HTTP_401_UNAUTHORIZED)
+
+            # check authorization
+            role = ("ADMIN")
+            flag_permission = is_permitted(token, role)
+            if not flag_permission:
+                return HttpResponse(status=status.HTTP_403_FORBIDDEN)
             name = self.GET.get('name')
             limit = self.GET.get('limit')
             offset = self.GET.get('offset')
@@ -56,7 +69,7 @@ class SlqeApi(APIView):
                                        phone=user_firebase.phone_number, avatar_url=user_firebase.photo_url,
                                        name=user_firebase.display_name, role=Role.create(role_id=1, name="USER"))
                     user.save()
-                    return JsonResponse(UserSerializer(user).data, status=status.HTTP_201_CREATED, safe=False)
+                    return JsonResponse({"user": UserSerializer(user), "token": user.token}, status=status.HTTP_201_CREATED, safe=False)
             except UserNotFoundError:
                 return HttpResponseBadRequest("User not found")
             except (ValueError, KeyError):
@@ -66,14 +79,46 @@ class SlqeApi(APIView):
 
     @api_view(['GET', 'PUT', 'DELETE'])
     def user_detail(self, user_id):
-        try:
-            user = User.objects.get(id=user_id)
-            user_serializer = UserSerializer(user)
-        except User.DoesNotExist:
-            return JsonResponse({'message': 'The user does not exist'}, status=status.HTTP_404_NOT_FOUND)
+        # get token from header
+        token = self.META.get('HTTP_AUTHORIZATION')
+        # check authentication
+        flag_verify = is_verified(token=token)
+        if not flag_verify:
+            return HttpResponse(status=status.HTTP_401_UNAUTHORIZED)
         if self.method == 'GET':
+            try:
+                # check authorization
+                role = ("CUSTOMER", "ADMIN")
+                flag_permission = is_permitted(token, role)
+                if not flag_permission:
+                    return HttpResponse(status=status.HTTP_403_FORBIDDEN)
+
+                payload = jwt.decode(token, settings.SECRET_KEY, algorithms='HS256')
+                user_access = User.objects.get(uid=payload['id'], is_active=True)
+
+                user = User.objects.get(pk=user_id)
+                user_serializer = UserSerializer(user)
+
+                #only owner user can access resources
+                if(user_access.role.name == "CUSTOMER"):
+                    if user_access.id != user.id:
+                        return HttpResponse(status=status.HTTP_403_FORBIDDEN)
+            except User.DoesNotExist:
+                return HttpResponse(status=status.HTTP_404_NOT_FOUND)
+            except DecodeError:
+                return HttpResponse(status=status.HTTP_401_UNAUTHORIZED)
             return JsonResponse(user_serializer.data, safe=False)
         elif self.method == 'PUT':
+            try:
+                # check authorization
+                role = ("ADMIN")
+                flag_permission = is_permitted(token, role)
+                if not flag_permission:
+                    return HttpResponse(status=status.HTTP_403_FORBIDDEN)
+
+                user = User.objects.get(pk=user_id)
+            except User.DoesNotExist:
+                return HttpResponse(status=status.HTTP_404_NOT_FOUND)
             user_data = JSONParser().parse(self)
             user_serializer = UserSerializer(user, data=user_data)
             if user_serializer.is_valid():
@@ -82,16 +127,37 @@ class SlqeApi(APIView):
             else:
                 return JsonResponse(user_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         elif self.method == 'DELETE':
-            if user.role.name == 'ADMIN':
-                user.is_active = False
-                user.save()
-                return HttpResponse(status=status.HTTP_204_NO_CONTENT)
-            return JsonResponse({'message': 'Permission Denied!'}, status=status.HTTP_401_UNAUTHORIZED)
+            try:
+                # check authorization
+                role = ("ADMIN")
+                flag_permission = is_permitted(token, role)
+                if not flag_permission:
+                    return HttpResponse(status=status.HTTP_403_FORBIDDEN)
+
+                user = User.objects.get(pk=user_id)
+            except User.DoesNotExist:
+                return HttpResponse(status=status.HTTP_404_NOT_FOUND)
+            user.is_active = False
+            user.save()
+            return HttpResponse(status=status.HTTP_204_NO_CONTENT)
 
     # ------- Image view -------------------
 
     @api_view(['POST'])
     def process_image(self):
+        # get token from header
+        token = self.META.get('HTTP_AUTHORIZATION')
+        # check authentication
+        flag_verify = is_verified(token=token)
+        if not flag_verify:
+            return HttpResponse(status=status.HTTP_401_UNAUTHORIZED)
+
+        # check authorization
+        role = ("CUSTOMER")
+        flag_permission = is_permitted(token, role)
+        if not flag_permission:
+            return HttpResponse(status=status.HTTP_403_FORBIDDEN)
+
         print(os.getcwd())
         file_obj = self.FILES['file']
         image = PIL.Image.open(file_obj)
@@ -107,6 +173,19 @@ class SlqeApi(APIView):
     @api_view(['GET', 'DELETE'])
     def images_detail(self, user_id, image_id):
         try:
+            # get token from header
+            token = self.META.get('HTTP_AUTHORIZATION')
+            # check authentication
+            flag_verify = is_verified(token=token)
+            if not flag_verify:
+                return HttpResponse(status=status.HTTP_401_UNAUTHORIZED)
+
+            # check authorization
+            role = ("CUSTOMER")
+            flag_permission = is_permitted(token, role)
+            if not flag_permission:
+                return HttpResponse(status=status.HTTP_403_FORBIDDEN)
+
             user = User.objects.get(id=user_id, is_active=True)
         except User.DoesNotExist:
             return JsonResponse({'message': 'The user does not exist'}, status=status.HTTP_404_NOT_FOUND)
@@ -132,6 +211,19 @@ class SlqeApi(APIView):
     @api_view(['GET', 'POST'])
     def user_images(self, user_id):
         try:
+            # get token from header
+            token = self.META.get('HTTP_AUTHORIZATION')
+            # check authentication
+            flag_verify = is_verified(token=token)
+            if not flag_verify:
+                return HttpResponse(status=status.HTTP_401_UNAUTHORIZED)
+
+            # check authorization
+            role = ("CUSTOMER")
+            flag_permission = is_permitted(token, role)
+            if not flag_permission:
+                return HttpResponse(status=status.HTTP_403_FORBIDDEN)
+
             user = User.objects.get(id=user_id, is_active=True)
         except User.DoesNotExist:
             return JsonResponse({'message': 'The user does not exist'}, status=status.HTTP_404_NOT_FOUND)
@@ -146,7 +238,7 @@ class SlqeApi(APIView):
             except (MultiValueDictKeyError, UnidentifiedImageError):
                 return JsonResponse({"message": "An application require a image to recognize"},
                                     status=status.HTTP_400_BAD_REQUEST)
-            now = datetime.datetime.now()
+            now = datetime.now()
             url = ""
             parsed_array = asarray(image)
             parsed_array = cv2.cvtColor(parsed_array, cv2.COLOR_RGB2BGR)
