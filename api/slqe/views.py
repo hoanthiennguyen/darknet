@@ -17,7 +17,7 @@ from rest_framework.parsers import *
 from rest_framework.views import *
 from slqe.serializers import *
 
-from slqe.jwt import *
+from slqe.jwt_utils import *
 
 logger = logging.getLogger(__name__)
 
@@ -30,14 +30,14 @@ class SlqeApi(APIView):
         if self.method == 'GET':
             # get token from header
             token = self.META.get('HTTP_AUTHORIZATION')
-            # check authenication
-            flag_verify = verify(token=token)
+            # check authentication
+            flag_verify = is_verified(token=token)
             if not flag_verify:
                 return HttpResponse(status=status.HTTP_401_UNAUTHORIZED)
 
             # check authorization
             role = ("ADMIN")
-            flag_permission = permission(token, role)
+            flag_permission = is_permitted(token, role)
             if not flag_permission:
                 return HttpResponse(status=status.HTTP_403_FORBIDDEN)
             name = self.GET.get('name')
@@ -69,7 +69,7 @@ class SlqeApi(APIView):
                                        phone=user_firebase.phone_number, avatar_url=user_firebase.photo_url,
                                        name=user_firebase.display_name, role=Role.create(role_id=1, name="USER"))
                     user.save()
-                    return JsonResponse(user.token, status=status.HTTP_201_CREATED, safe=False)
+                    return JsonResponse({"user": UserSerializer(user), "token": user.token}, status=status.HTTP_201_CREATED, safe=False)
             except UserNotFoundError:
                 return HttpResponseBadRequest("User not found")
             except (ValueError, KeyError):
@@ -81,15 +81,15 @@ class SlqeApi(APIView):
     def user_detail(self, user_id):
         # get token from header
         token = self.META.get('HTTP_AUTHORIZATION')
-        # check authenication
-        flag_verify = verify(token=token)
+        # check authentication
+        flag_verify = is_verified(token=token)
         if not flag_verify:
             return HttpResponse(status=status.HTTP_401_UNAUTHORIZED)
         if self.method == 'GET':
             try:
                 # check authorization
                 role = ("CUSTOMER", "ADMIN")
-                flag_permission = permission(token, role)
+                flag_permission = is_permitted(token, role)
                 if not flag_permission:
                     return HttpResponse(status=status.HTTP_403_FORBIDDEN)
 
@@ -102,7 +102,7 @@ class SlqeApi(APIView):
                 #only owner user can access resources
                 if(user_access.role.name == "CUSTOMER"):
                     if user_access.id != user.id:
-                        return HttpResponse(status=status.HTTP_401_UNAUTHORIZED)
+                        return HttpResponse(status=status.HTTP_403_FORBIDDEN)
             except:
                 return HttpResponse(status=status.HTTP_404_NOT_FOUND)
             return JsonResponse(user_serializer.data, safe=False)
@@ -110,7 +110,7 @@ class SlqeApi(APIView):
             try:
                 # check authorization
                 role = ("ADMIN")
-                flag_permission = permission(token, role)
+                flag_permission = is_permitted(token, role)
                 if not flag_permission:
                     return HttpResponse(status=status.HTTP_403_FORBIDDEN)
 
@@ -128,7 +128,7 @@ class SlqeApi(APIView):
             try:
                 # check authorization
                 role = ("ADMIN")
-                flag_permission = permission(token, role)
+                flag_permission = is_permitted(token, role)
                 if not flag_permission:
                     return HttpResponse(status=status.HTTP_403_FORBIDDEN)
 
@@ -145,14 +145,14 @@ class SlqeApi(APIView):
     def process_image(self):
         # get token from header
         token = self.META.get('HTTP_AUTHORIZATION')
-        # check authenication
-        flag_verify = verify(token=token)
+        # check authentication
+        flag_verify = is_verified(token=token)
         if not flag_verify:
             return HttpResponse(status=status.HTTP_401_UNAUTHORIZED)
 
         # check authorization
         role = ("CUSTOMER")
-        flag_permission = permission(token, role)
+        flag_permission = is_permitted(token, role)
         if not flag_permission:
             return HttpResponse(status=status.HTTP_403_FORBIDDEN)
 
@@ -173,14 +173,14 @@ class SlqeApi(APIView):
         try:
             # get token from header
             token = self.META.get('HTTP_AUTHORIZATION')
-            # check authenication
-            flag_verify = verify(token=token)
+            # check authentication
+            flag_verify = is_verified(token=token)
             if not flag_verify:
                 return HttpResponse(status=status.HTTP_401_UNAUTHORIZED)
 
             # check authorization
             role = ("CUSTOMER")
-            flag_permission = permission(token, role)
+            flag_permission = is_permitted(token, role)
             if not flag_permission:
                 return HttpResponse(status=status.HTTP_403_FORBIDDEN)
 
@@ -211,14 +211,14 @@ class SlqeApi(APIView):
         try:
             # get token from header
             token = self.META.get('HTTP_AUTHORIZATION')
-            # check authenication
-            flag_verify = verify(token=token)
+            # check authentication
+            flag_verify = is_verified(token=token)
             if not flag_verify:
                 return HttpResponse(status=status.HTTP_401_UNAUTHORIZED)
 
             # check authorization
             role = ("CUSTOMER")
-            flag_permission = permission(token, role)
+            flag_permission = is_permitted(token, role)
             if not flag_permission:
                 return HttpResponse(status=status.HTTP_403_FORBIDDEN)
 
