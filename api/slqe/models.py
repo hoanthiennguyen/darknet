@@ -4,6 +4,7 @@ from django_mysql.models import ListCharField
 import jwt
 from datetime import datetime, timedelta
 
+
 # Create your models here.
 
 
@@ -59,7 +60,7 @@ class User(models.Model):
         token = jwt.encode({
             'id': self.uid,
             'exp': int(dt.strftime('%s'))
-        },settings.SECRET_KEY, algorithm='HS256')
+        }, settings.SECRET_KEY, algorithm='HS256')
 
         return token
 

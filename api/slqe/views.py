@@ -105,6 +105,8 @@ class SlqeApi(APIView):
                         return HttpResponse(status=status.HTTP_403_FORBIDDEN)
             except User.DoesNotExist:
                 return HttpResponse(status=status.HTTP_404_NOT_FOUND)
+            except DecodeError:
+                return HttpResponse(status=status.HTTP_401_UNAUTHORIZED)
             return JsonResponse(user_serializer.data, safe=False)
         elif self.method == 'PUT':
             try:

@@ -2,6 +2,7 @@ from datetime import datetime
 
 import jwt
 from django.conf import settings
+from jwt import DecodeError
 from slqe.models import User
 
 
@@ -22,6 +23,8 @@ def is_verified(token):
         return False
     except TypeError:
         return False
+    except DecodeError:
+        return False
     return True
 
 
@@ -37,6 +40,8 @@ def is_permitted(token, roles):
     except ValueError:
         return False
     except TypeError:
+        return False
+    except DecodeError:
         return False
     return False
 
