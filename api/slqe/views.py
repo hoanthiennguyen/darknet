@@ -16,7 +16,6 @@ from rest_framework.decorators import api_view
 from rest_framework.parsers import *
 from rest_framework.views import *
 from slqe.serializers import *
-from firebase_admin import auth
 import logging
 from slqe.utils import parse_offset_limit
 
@@ -48,9 +47,9 @@ class SlqeApi(APIView):
             offset = self.GET.get('offset')
             offset, limit = parse_offset_limit(offset, limit)
             if name:
-                users = User.objects.filter(name__icontains=name, role=Role.user_role())[offset:offset+limit]
+                users = User.objects.filter(name__icontains=name, role=Role.user_role())[offset:offset + limit]
             else:
-                users = User.objects.filter(role=Role.user_role())[offset:offset+limit]
+                users = User.objects.filter(role=Role.user_role())[offset:offset + limit]
             user_serializer = UserSerializer(users, many=True)
             return JsonResponse(user_serializer.data, safe=False)
         elif self.method == 'POST':
@@ -65,7 +64,8 @@ class SlqeApi(APIView):
                                        phone=user_firebase.phone_number, avatar_url=user_firebase.photo_url,
                                        name=user_firebase.display_name, role=Role.create(role_id=1, name="USER"))
                     user.save()
-                    return JsonResponse({"user": UserSerializer(user), "token": user.token}, status=status.HTTP_201_CREATED, safe=False)
+                    return JsonResponse({"user": UserSerializer(user), "token": user.token},
+                                        status=status.HTTP_201_CREATED, safe=False)
             except UserNotFoundError:
                 return HttpResponseBadRequest("User not found")
             except (ValueError, KeyError):
@@ -95,8 +95,8 @@ class SlqeApi(APIView):
                 user = User.objects.get(pk=user_id)
                 user_serializer = UserSerializer(user)
 
-                #only owner user can access resources
-                if(user_access.role.name == "CUSTOMER"):
+                # only owner user can access resources
+                if user_access.role.name == "CUSTOMER":
                     if user_access.id != user.id:
                         return HttpResponse(status=status.HTTP_403_FORBIDDEN)
             except User.DoesNotExist:
@@ -212,7 +212,7 @@ class SlqeApi(APIView):
             limit = self.GET.get('limit')
             offset = self.GET.get('offset')
             offset, limit = parse_offset_limit(offset, limit)
-            images = Image.objects.filter(user=user_id).order_by('-date_time')[offset:offset+limit]
+            images = Image.objects.filter(user=user_id).order_by('-date_time')[offset:offset + limit]
             image_serializer = ImageSerializer(images, many=True)
             return JsonResponse(image_serializer.data, safe=False)
         elif self.method == 'POST':
