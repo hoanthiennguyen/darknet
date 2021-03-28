@@ -16,6 +16,9 @@ from rest_framework.decorators import api_view
 from rest_framework.parsers import *
 from rest_framework.views import *
 from slqe.serializers import *
+from firebase_admin import auth
+import logging
+from slqe.utils import parse_offset_limit
 
 from slqe.jwt_utils import *
 
@@ -43,18 +46,11 @@ class SlqeApi(APIView):
             name = self.GET.get('name')
             limit = self.GET.get('limit')
             offset = self.GET.get('offset')
-            if not limit:
-                limit = 10
-            else:
-                limit = int(limit)
-            if not offset:
-                offset = 0
-            else:
-                offset = int(offset)
+            offset, limit = parse_offset_limit(offset, limit)
             if name:
-                users = User.objects.filter(name__icontains=name)[offset:offset+limit]
+                users = User.objects.filter(name__icontains=name, role=Role.user_role())[offset:offset+limit]
             else:
-                users = User.objects.all()[offset:offset+limit]
+                users = User.objects.filter(role=Role.user_role())[offset:offset+limit]
             user_serializer = UserSerializer(users, many=True)
             return JsonResponse(user_serializer.data, safe=False)
         elif self.method == 'POST':
@@ -120,12 +116,10 @@ class SlqeApi(APIView):
             except User.DoesNotExist:
                 return HttpResponse(status=status.HTTP_404_NOT_FOUND)
             user_data = JSONParser().parse(self)
-            user_serializer = UserSerializer(user, data=user_data)
-            if user_serializer.is_valid():
-                user_serializer.save()
-                return HttpResponse(status=status.HTTP_204_NO_CONTENT)
-            else:
-                return JsonResponse(user_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            user = User.objects.get(id=user_id)
+            user.is_active = user_data['is_active']
+            user.save()
+            return HttpResponse(status=status.HTTP_204_NO_CONTENT)
         elif self.method == 'DELETE':
             try:
                 # check authorization
@@ -145,19 +139,6 @@ class SlqeApi(APIView):
 
     @api_view(['POST'])
     def process_image(self):
-        # get token from header
-        token = self.META.get('HTTP_AUTHORIZATION')
-        # check authentication
-        flag_verify = is_verified(token=token)
-        if not flag_verify:
-            return HttpResponse(status=status.HTTP_401_UNAUTHORIZED)
-
-        # check authorization
-        role = ("CUSTOMER")
-        flag_permission = is_permitted(token, role)
-        if not flag_permission:
-            return HttpResponse(status=status.HTTP_403_FORBIDDEN)
-
         print(os.getcwd())
         file_obj = self.FILES['file']
         image = PIL.Image.open(file_obj)
@@ -228,7 +209,10 @@ class SlqeApi(APIView):
         except User.DoesNotExist:
             return JsonResponse({'message': 'The user does not exist'}, status=status.HTTP_404_NOT_FOUND)
         if self.method == 'GET':
-            images = Image.objects.filter(user=user_id).order_by('-date_time')
+            limit = self.GET.get('limit')
+            offset = self.GET.get('offset')
+            offset, limit = parse_offset_limit(offset, limit)
+            images = Image.objects.filter(user=user_id).order_by('-date_time')[offset:offset+limit]
             image_serializer = ImageSerializer(images, many=True)
             return JsonResponse(image_serializer.data, safe=False)
         elif self.method == 'POST':

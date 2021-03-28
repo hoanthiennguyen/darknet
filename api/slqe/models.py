@@ -16,6 +16,14 @@ class Role(models.Model):
     def create(cls, role_id, name):
         return cls(id=role_id, name=name)
 
+    @classmethod
+    def admin_role(cls):
+        return cls.create(2, "ADMIN")
+
+    @classmethod
+    def user_role(cls):
+        return cls.create(1, "USER")
+
     class Meta:
         db_table = 'role'
 
