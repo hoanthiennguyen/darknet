@@ -16,7 +16,11 @@ def is_verified(token):
         dt = datetime.now()
         if token != verify_token or int(dt.strftime('%s')) > payload['exp']:
             return False
-    except:
+    except User.DoesNotExist:
+        return False
+    except ValueError:
+        return False
+    except TypeError:
         return False
     return True
 
@@ -28,7 +32,11 @@ def is_permitted(token, roles):
 
         if user.role.name in roles:
             return True
-    except:
+    except User.DoesNotExist:
+        return False
+    except ValueError:
+        return False
+    except TypeError:
         return False
     return False
 

@@ -103,7 +103,7 @@ class SlqeApi(APIView):
                 if(user_access.role.name == "CUSTOMER"):
                     if user_access.id != user.id:
                         return HttpResponse(status=status.HTTP_403_FORBIDDEN)
-            except:
+            except User.DoesNotExist:
                 return HttpResponse(status=status.HTTP_404_NOT_FOUND)
             return JsonResponse(user_serializer.data, safe=False)
         elif self.method == 'PUT':
@@ -115,7 +115,7 @@ class SlqeApi(APIView):
                     return HttpResponse(status=status.HTTP_403_FORBIDDEN)
 
                 user = User.objects.get(pk=user_id)
-            except:
+            except User.DoesNotExist:
                 return HttpResponse(status=status.HTTP_404_NOT_FOUND)
             user_data = JSONParser().parse(self)
             user_serializer = UserSerializer(user, data=user_data)
@@ -133,7 +133,7 @@ class SlqeApi(APIView):
                     return HttpResponse(status=status.HTTP_403_FORBIDDEN)
 
                 user = User.objects.get(pk=user_id)
-            except:
+            except User.DoesNotExist:
                 return HttpResponse(status=status.HTTP_404_NOT_FOUND)
             user.is_active = False
             user.save()
