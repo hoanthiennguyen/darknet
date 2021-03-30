@@ -113,12 +113,12 @@ class SlqeApi(APIView):
                     return HttpResponse(status=status.HTTP_403_FORBIDDEN)
 
                 user = User.objects.get(pk=user_id)
+                user_data = JSONParser().parse(self)
+                user.is_active = user_data['is_active']
+                user.save()
+                return HttpResponse(status=status.HTTP_204_NO_CONTENT)
             except User.DoesNotExist:
                 return HttpResponse(status=status.HTTP_404_NOT_FOUND)
-            user_data = JSONParser().parse(self)
-            user.is_active = user_data['is_active']
-            user.save()
-            return HttpResponse(status=status.HTTP_204_NO_CONTENT)
         elif self.method == 'DELETE':
             try:
                 # check authorization
