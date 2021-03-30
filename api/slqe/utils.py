@@ -7,4 +7,9 @@ def parse_offset_limit(offset, limit):
         offset = 0
     else:
         offset = int(offset)
+
+    if offset < 0:
+        offset = 0
+    if limit < 0:
+        limit = 10
     return offset, limit
