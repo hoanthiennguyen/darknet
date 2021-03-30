@@ -16,6 +16,14 @@ class Role(models.Model):
     def create(cls, role_id, name):
         return cls(id=role_id, name=name)
 
+    @classmethod
+    def admin_role(cls):
+        return cls.create(2, "ADMIN")
+
+    @classmethod
+    def customer_role(cls):
+        return cls.create(1, "CUSTOMER")
+
     class Meta:
         db_table = 'role'
 
@@ -29,7 +37,7 @@ class User(models.Model):
     phone = models.CharField(max_length=255, null=True)
     avatar_url = models.CharField(max_length=255, null=True)
     name = models.CharField(max_length=255)
-    is_active = models.BooleanField(default=True, null=True)
+    is_active = models.BooleanField(default=True)
 
     def __str__(self):
         """

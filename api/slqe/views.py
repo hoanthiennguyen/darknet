@@ -5,6 +5,7 @@ import PIL.Image
 import boto3
 import cv2
 from PIL import UnidentifiedImageError
+from django.core.exceptions import ValidationError
 from django.http.response import *
 from django.utils.datastructures import MultiValueDictKeyError
 from firebase_admin import auth
@@ -16,6 +17,8 @@ from rest_framework.decorators import api_view
 from rest_framework.parsers import *
 from rest_framework.views import *
 from slqe.serializers import *
+import logging
+from slqe.utils import parse_offset_limit
 
 from slqe.jwt_utils import *
 
@@ -43,18 +46,11 @@ class SlqeApi(APIView):
             name = self.GET.get('name')
             limit = self.GET.get('limit')
             offset = self.GET.get('offset')
-            if not limit:
-                limit = 10
-            else:
-                limit = int(limit)
-            if not offset:
-                offset = 0
-            else:
-                offset = int(offset)
+            offset, limit = parse_offset_limit(offset, limit)
             if name:
-                users = User.objects.filter(name__icontains=name)[offset:offset+limit]
+                users = User.objects.filter(name__icontains=name, role=Role.customer_role())[offset:offset + limit]
             else:
-                users = User.objects.all()[offset:offset+limit]
+                users = User.objects.filter(role=Role.customer_role())[offset:offset + limit]
             user_serializer = UserSerializer(users, many=True)
             return JsonResponse(user_serializer.data, safe=False)
         elif self.method == 'POST':
@@ -63,13 +59,16 @@ class SlqeApi(APIView):
                 user_firebase = auth.get_user(user_data['uid'])
                 users = User.objects.filter(uid=user_firebase.uid)
                 if users:
-                    return JsonResponse(UserSerializer(users[0]).data, status=status.HTTP_200_OK, safe=False)
+                    user = users[0]
+                    return JsonResponse({"user": UserSerializer(user).data, "token": user.token},
+                                        status=status.HTTP_200_OK, safe=False)
                 else:
                     user = User.create(email=user_firebase.email, uid=user_firebase.uid, password=None,
                                        phone=user_firebase.phone_number, avatar_url=user_firebase.photo_url,
                                        name=user_firebase.display_name, role=Role.create(role_id=1, name="USER"))
                     user.save()
-                    return JsonResponse({"user": UserSerializer(user), "token": user.token}, status=status.HTTP_201_CREATED, safe=False)
+                    return JsonResponse({"user": UserSerializer(user).data, "token": user.token},
+                                        status=status.HTTP_201_CREATED, safe=False)
             except UserNotFoundError:
                 return HttpResponseBadRequest("User not found")
             except (ValueError, KeyError):
@@ -99,8 +98,8 @@ class SlqeApi(APIView):
                 user = User.objects.get(pk=user_id)
                 user_serializer = UserSerializer(user)
 
-                #only owner user can access resources
-                if(user_access.role.name == "CUSTOMER"):
+                # only owner user can access resources
+                if user_access.role.name == "CUSTOMER":
                     if user_access.id != user.id:
                         return HttpResponse(status=status.HTTP_403_FORBIDDEN)
             except User.DoesNotExist:
@@ -117,15 +116,14 @@ class SlqeApi(APIView):
                     return HttpResponse(status=status.HTTP_403_FORBIDDEN)
 
                 user = User.objects.get(pk=user_id)
+                request_data = JSONParser().parse(self)
+                user.is_active = request_data['is_active']
+                user.save()
+                return HttpResponse(status=status.HTTP_204_NO_CONTENT)
             except User.DoesNotExist:
                 return HttpResponse(status=status.HTTP_404_NOT_FOUND)
-            user_data = JSONParser().parse(self)
-            user_serializer = UserSerializer(user, data=user_data)
-            if user_serializer.is_valid():
-                user_serializer.save()
-                return HttpResponse(status=status.HTTP_204_NO_CONTENT)
-            else:
-                return JsonResponse(user_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            except (ValidationError, KeyError):
+                return HttpResponseBadRequest()
         elif self.method == 'DELETE':
             try:
                 # check authorization
@@ -145,19 +143,6 @@ class SlqeApi(APIView):
 
     @api_view(['POST'])
     def process_image(self):
-        # get token from header
-        token = self.META.get('HTTP_AUTHORIZATION')
-        # check authentication
-        flag_verify = is_verified(token=token)
-        if not flag_verify:
-            return HttpResponse(status=status.HTTP_401_UNAUTHORIZED)
-
-        # check authorization
-        role = ("CUSTOMER")
-        flag_permission = is_permitted(token, role)
-        if not flag_permission:
-            return HttpResponse(status=status.HTTP_403_FORBIDDEN)
-
         print(os.getcwd())
         file_obj = self.FILES['file']
         image = PIL.Image.open(file_obj)
@@ -228,7 +213,10 @@ class SlqeApi(APIView):
         except User.DoesNotExist:
             return JsonResponse({'message': 'The user does not exist'}, status=status.HTTP_404_NOT_FOUND)
         if self.method == 'GET':
-            images = Image.objects.filter(user=user_id).order_by('-date_time')
+            limit = self.GET.get('limit')
+            offset = self.GET.get('offset')
+            offset, limit = parse_offset_limit(offset, limit)
+            images = Image.objects.filter(user=user_id).order_by('-date_time')[offset:offset + limit]
             image_serializer = ImageSerializer(images, many=True)
             return JsonResponse(image_serializer.data, safe=False)
         elif self.method == 'POST':
