@@ -22,7 +22,7 @@ class Role(models.Model):
 
     @classmethod
     def user_role(cls):
-        return cls.create(1, "USER")
+        return cls.create(1, "CUSTOMER")
 
     class Meta:
         db_table = 'role'
