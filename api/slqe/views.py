@@ -47,9 +47,9 @@ class SlqeApi(APIView):
             offset = self.GET.get('offset')
             offset, limit = parse_offset_limit(offset, limit)
             if name:
-                users = User.objects.filter(name__icontains=name, role=Role.user_role())[offset:offset + limit]
+                users = User.objects.filter(name__icontains=name, role=Role.customer_role())[offset:offset + limit]
             else:
-                users = User.objects.filter(role=Role.user_role())[offset:offset + limit]
+                users = User.objects.filter(role=Role.customer_role())[offset:offset + limit]
             user_serializer = UserSerializer(users, many=True)
             return JsonResponse(user_serializer.data, safe=False)
         elif self.method == 'POST':

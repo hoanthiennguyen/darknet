@@ -21,7 +21,7 @@ class Role(models.Model):
         return cls.create(2, "ADMIN")
 
     @classmethod
-    def user_role(cls):
+    def customer_role(cls):
         return cls.create(1, "CUSTOMER")
 
     class Meta:
