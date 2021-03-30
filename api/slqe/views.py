@@ -5,6 +5,7 @@ import PIL.Image
 import boto3
 import cv2
 from PIL import UnidentifiedImageError
+from django.core.exceptions import ValidationError
 from django.http.response import *
 from django.utils.datastructures import MultiValueDictKeyError
 from firebase_admin import auth
@@ -58,13 +59,15 @@ class SlqeApi(APIView):
                 user_firebase = auth.get_user(user_data['uid'])
                 users = User.objects.filter(uid=user_firebase.uid)
                 if users:
-                    return JsonResponse(UserSerializer(users[0]).data, status=status.HTTP_200_OK, safe=False)
+                    user = users[0]
+                    return JsonResponse({"user": UserSerializer(user).data, "token": user.token},
+                                        status=status.HTTP_200_OK, safe=False)
                 else:
                     user = User.create(email=user_firebase.email, uid=user_firebase.uid, password=None,
                                        phone=user_firebase.phone_number, avatar_url=user_firebase.photo_url,
                                        name=user_firebase.display_name, role=Role.create(role_id=1, name="USER"))
                     user.save()
-                    return JsonResponse({"user": UserSerializer(user), "token": user.token},
+                    return JsonResponse({"user": UserSerializer(user).data, "token": user.token},
                                         status=status.HTTP_201_CREATED, safe=False)
             except UserNotFoundError:
                 return HttpResponseBadRequest("User not found")
@@ -113,12 +116,14 @@ class SlqeApi(APIView):
                     return HttpResponse(status=status.HTTP_403_FORBIDDEN)
 
                 user = User.objects.get(pk=user_id)
-                user_data = JSONParser().parse(self)
-                user.is_active = user_data['is_active']
+                request_data = JSONParser().parse(self)
+                user.is_active = request_data['is_active']
                 user.save()
                 return HttpResponse(status=status.HTTP_204_NO_CONTENT)
             except User.DoesNotExist:
                 return HttpResponse(status=status.HTTP_404_NOT_FOUND)
+            except (ValidationError, KeyError):
+                return HttpResponseBadRequest()
         elif self.method == 'DELETE':
             try:
                 # check authorization

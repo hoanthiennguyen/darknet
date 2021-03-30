@@ -37,7 +37,7 @@ class User(models.Model):
     phone = models.CharField(max_length=255, null=True)
     avatar_url = models.CharField(max_length=255, null=True)
     name = models.CharField(max_length=255)
-    is_active = models.BooleanField(default=True, null=True)
+    is_active = models.BooleanField(default=True)
 
     def __str__(self):
         """
