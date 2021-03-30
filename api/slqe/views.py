@@ -116,7 +116,6 @@ class SlqeApi(APIView):
             except User.DoesNotExist:
                 return HttpResponse(status=status.HTTP_404_NOT_FOUND)
             user_data = JSONParser().parse(self)
-            user = User.objects.get(id=user_id)
             user.is_active = user_data['is_active']
             user.save()
             return HttpResponse(status=status.HTTP_204_NO_CONTENT)
