@@ -48,11 +48,13 @@ class SlqeApi(APIView):
             offset = self.GET.get('offset')
             offset, limit = parse_offset_limit(offset, limit)
             if name:
+                total_user = User.objects.filter(name__icontains=name, role=Role.customer_role()).count()
                 users = User.objects.filter(name__icontains=name, role=Role.customer_role())[offset:offset + limit]
             else:
+                total_user = User.objects.filter(role=Role.customer_role()).count()
                 users = User.objects.filter(role=Role.customer_role())[offset:offset + limit]
             user_serializer = UserSerializer(users, many=True)
-            return JsonResponse(user_serializer.data, safe=False)
+            return JsonResponse({"total" : total_user, "data" : user_serializer.data}, safe=False)
         elif self.method == 'POST':
             user_data = JSONParser().parse(self)
             try:
@@ -213,12 +215,13 @@ class SlqeApi(APIView):
         except User.DoesNotExist:
             return JsonResponse({'message': 'The user does not exist'}, status=status.HTTP_404_NOT_FOUND)
         if self.method == 'GET':
+            total_image = Image.objects.filter(user=user_id).order_by('-date_time').count()
             limit = self.GET.get('limit')
             offset = self.GET.get('offset')
             offset, limit = parse_offset_limit(offset, limit)
             images = Image.objects.filter(user=user_id).order_by('-date_time')[offset:offset + limit]
             image_serializer = ImageSerializer(images, many=True)
-            return JsonResponse(image_serializer.data, safe=False)
+            return JsonResponse({"total" : total_image, "data" : image_serializer.data}, safe=False)
         elif self.method == 'POST':
             try:
                 file_obj = self.FILES['file']
