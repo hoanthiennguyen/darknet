@@ -118,7 +118,7 @@ def get_expression(list_element: List[Element]) -> str:
             if i + 1 < length:
                 next_of_exponent_element = list_element[i + 1]
                 if not (is_operators(next_of_exponent_element.expression) or is_closing_bracket(
-                        next_of_exponent_element)):
+                        next_of_exponent_element.expression)):
                     result += "."
         elif isinstance(current_element, Fraction):
             # add () for fraction, Ex x/2*3 => (x/2)*3
