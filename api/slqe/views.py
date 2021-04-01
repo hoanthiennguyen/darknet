@@ -6,23 +6,20 @@ import boto3
 import cv2
 from PIL import UnidentifiedImageError
 from django.core.exceptions import ValidationError
-from django.db.models import F
 from django.http.response import *
 from django.utils.datastructures import MultiValueDictKeyError
 from firebase_admin import auth
 from firebase_admin.auth import UserNotFoundError
 from firebase_admin.exceptions import FirebaseError
-from matplotlib.pyplot import cla
 from numpy import asarray
 from processor import algorithm
 from rest_framework.decorators import api_view
 from rest_framework.parsers import *
 from rest_framework.views import *
+from slqe.jwt_utils import *
 from slqe.serializers import *
-import logging
 from slqe.utils import parse_offset_limit
 
-from slqe.jwt_utils import *
 
 logger = logging.getLogger(__name__)
 
@@ -257,6 +254,7 @@ class SlqeApi(APIView):
 
             return JsonResponse(image_serializer.data, status=status.HTTP_201_CREATED)
 
+#class version
     @api_view(['GET', 'POST'])
     def class_list(self):
         if self.method == 'GET':
@@ -305,3 +303,79 @@ class SlqeApi(APIView):
             return JsonResponse(class_serializer.data, safe=False)
         except ClassVersion.DoesNotExist:
             return JsonResponse({'message': 'The class version does not exist'}, status=status.HTTP_404_NOT_FOUND)
+#weight version
+    @api_view(['GET', 'POST'])
+    def weight_list(self, class_id):
+
+        # get token from header
+        token = self.META.get('HTTP_AUTHORIZATION')
+        # check authentication
+        flag_verify = is_verified(token=token)
+        if not flag_verify:
+            return HttpResponse(status=status.HTTP_401_UNAUTHORIZED)
+
+        # check authorization
+        role = ("ADMIN")
+        flag_permission = is_permitted(token, role)
+        if not flag_permission:
+            return HttpResponse(status=status.HTTP_403_FORBIDDEN)
+
+        versions = WeightVersion.objects.filter(class_version=class_id).order_by('-created_date')
+        print(type(versions))
+        if self.method == 'GET':
+            weight_serializer = WeightSerializer(versions, many=True)
+            return JsonResponse(weight_serializer.data, safe=False)
+        elif self.method == 'POST':
+            version_data = JSONParser().parse(self)
+
+            if str(version_data["class_version"]) != class_id:
+                return JsonResponse({"message" : "Conflict class version"}, status=status.HTTP_400_BAD_REQUEST)
+
+            if WeightVersion.objects.filter(class_version=class_id, version = version_data["version"]).exists():
+                return JsonResponse({"message" : "Weight version is exist in class version"}, status=status.HTTP_400_BAD_REQUEST)
+            weight_serializer = WeightSerializer(data=version_data)
+            if weight_serializer.is_valid():
+                weight_serializer.save()
+                return JsonResponse(weight_serializer.data, status=status.HTTP_201_CREATED, safe=False)
+            return JsonResponse(weight_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    @api_view(['GET', 'PUT'])
+    def class_weight(self, class_id, weight_id):
+        # get token from header
+        token = self.META.get('HTTP_AUTHORIZATION')
+        # check authentication
+        flag_verify = is_verified(token=token)
+        if not flag_verify:
+            return HttpResponse(status=status.HTTP_401_UNAUTHORIZED)
+        # check authorization
+        role = ("ADMIN")
+        flag_permission = is_permitted(token, role)
+        if not flag_permission:
+            return HttpResponse(status=status.HTTP_403_FORBIDDEN)
+        try:
+            ClassVersion.objects.get(pk=class_id)
+        except ClassVersion.DoesNotExist:
+            return JsonResponse({'message': 'The class version does not exist'}, status=status.HTTP_404_NOT_FOUND)
+        if self.method == 'GET':
+            try:
+                version = WeightVersion.objects.get(pk=weight_id, class_version=class_id)
+                weight_serializer = WeightSerializer(version)
+                return JsonResponse(weight_serializer.data, safe=False)
+            except WeightVersion.DoesNotExist:
+                return JsonResponse({'message': 'The weight version does not exist'}, status=status.HTTP_404_NOT_FOUND)
+        elif self.method == 'PUT':
+            try:
+                version = WeightVersion.objects.get(pk=weight_id, class_version=class_id, is_active=False)
+
+                current_version = WeightVersion.objects.filter(is_active=True).first()
+                current_version.is_active = False
+                current_version.save()
+
+
+                version.is_active = True
+                version.save()
+
+                return HttpResponse(status=status.HTTP_204_NO_CONTENT)
+            except WeightVersion.DoesNotExist:
+                return JsonResponse({'message': 'The weight version does not exist'}, status=status.HTTP_404_NOT_FOUND)
+

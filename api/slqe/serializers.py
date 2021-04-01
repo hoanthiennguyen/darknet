@@ -54,5 +54,5 @@ class WeightSerializer(serializers.ModelSerializer):
                   'url',
                   'created_date',
                   'is_active',
-                  'class_version'
+                  'class_version',
                   )

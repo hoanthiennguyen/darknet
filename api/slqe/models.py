@@ -110,7 +110,7 @@ class ClassVersion(models.Model):
     id = models.AutoField(primary_key=True, default=None)
     version = models.CharField(max_length=255, unique=True)
     commit_hash = models.CharField(max_length=255)
-    created_date = models.DateTimeField(default=datetime.now())
+    created_date = models.DateTimeField(default=datetime.now)
 
     class Meta:
         db_table = 'class_version'
@@ -118,9 +118,9 @@ class ClassVersion(models.Model):
 
 class WeightVersion(models.Model):
     id = models.AutoField(primary_key=True, default=None)
-    version = models.CharField(max_length=255, unique=True)
+    version = models.CharField(max_length=255)
     url = models.CharField(max_length=255)
-    created_date = models.DateTimeField(default=datetime.now(), blank=True)
+    created_date = models.DateTimeField(default=datetime.now, blank=True)
     is_active = models.BooleanField(default=False)
     class_version = models.ForeignKey(ClassVersion, on_delete=models.CASCADE)
 
