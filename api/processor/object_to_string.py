@@ -12,7 +12,7 @@ quarter_superscript_threshold = 1 / 4
 subscript_threshold = 0.6
 exponent_angle_threshold = 20
 label_with_sub_threshold = 0.7
-exponent_base_size_ratio_threshold = 0.7
+exponent_base_size_ratio_threshold = 0.6
 inline_operator_threshold = 0.3
 
 
@@ -74,14 +74,14 @@ class Fraction(Element):
         return None
 
 
-class Exponent(Element):
+class Power(Element):
 
     def __init__(self, expression: str, list_element: List[Element] = None):
         super().__init__(expression)
         self.list_element = list_element
 
     def __eq__(self, other):
-        if isinstance(other, Exponent):
+        if isinstance(other, Power):
             return self.expression == other.expression \
                 # and self.box == other.box
         else:
@@ -102,12 +102,12 @@ def get_expression(list_element: List[Element]) -> str:
 
     list_all_fraction = get_all_fractions(list_element)
     list_element = merge_list_element_with_list_fraction(list_element, list_all_fraction)
-    list_all_exponent = get_all_exponent(list_element)
-    list_element = merge_list_element_with_list_exponent(list_element, list_all_exponent)
+    list_all_exponent = get_all_power(list_element)
+    list_element = merge_list_element_with_list_power(list_element, list_all_exponent)
     length = len(list_element)
     for i in range(0, length):
         current_element = list_element[i]
-        if isinstance(current_element, Exponent):
+        if isinstance(current_element, Power):
             result += current_element.expression
             if i + 1 < length:
                 next_of_exponent_element = list_element[i + 1]
@@ -141,7 +141,7 @@ def merge_list_element_with_list_fraction(list_element: List[Element], list_frac
     return result
 
 
-def merge_list_element_with_list_exponent(list_element: List[Element], list_exponent: List[Exponent]) -> List[Element]:
+def merge_list_element_with_list_power(list_element: List[Element], list_exponent: List[Power]) -> List[Element]:
     result = []
     remove_list = []
     for element in list_element:
@@ -374,7 +374,7 @@ def operator_is_exponent(base_element: Element, next_element: Element):
     return True
 
 
-def get_exponent(list_element: List[Element], base_element: Element, index: int) -> int:
+def get_end_index_of_exponent(list_element: List[Element], base_element: Element, index: int) -> int:
     end_of_script = index_to_compare = index
     length = len(list_element)
     # get subscript or superscript
@@ -416,10 +416,10 @@ def get_exponent(list_element: List[Element], base_element: Element, index: int)
 
         # get index to compare, and end_of_script if current label is exponent
         if is_exponent(previous_element, current_element):
-            end_of_script = get_exponent(list_element, previous_element, end_of_script_temp)
+            end_of_script = get_end_index_of_exponent(list_element, previous_element, end_of_script_temp)
         else:
             if is_small_exponent(previous_element, current_element):
-                end_of_script = get_exponent(list_element, previous_element, end_of_script_temp)
+                end_of_script = get_end_index_of_exponent(list_element, previous_element, end_of_script_temp)
             else:
                 end_of_script = end_of_script_temp
                 index_to_compare = end_of_script
@@ -427,7 +427,7 @@ def get_exponent(list_element: List[Element], base_element: Element, index: int)
     return end_of_script
 
 
-def get_all_exponent(list_element: List[Element]) -> List[Exponent]:
+def get_all_power(list_element: List[Element]) -> List[Power]:
     length = len(list_element)
     remove_list = []
     result = []
@@ -446,15 +446,15 @@ def get_all_exponent(list_element: List[Element]) -> List[Exponent]:
                             continue
 
                 # get exponent
-                exponent = get_exponent_expression(list_element, current_element, i + 1)
-                result.append(exponent)
-                remove_list = remove_list + exponent.list_element
+                power = get_power_expression(list_element, current_element, i + 1)
+                result.append(power)
+                remove_list = remove_list + power.list_element
 
     return result
 
 
-def get_exponent_expression(list_element: List[Element], base_element: Element, index: int) -> Exponent:
-    end_of_script = get_exponent(list_element, base_element, index)
+def get_power_expression(list_element: List[Element], base_element: Element, index: int) -> Power:
+    end_of_script = get_end_index_of_exponent(list_element, base_element, index)
     list_exponent = []
     for i in range(index, end_of_script + 1):
         list_exponent.append(list_element[i])
@@ -464,8 +464,8 @@ def get_exponent_expression(list_element: List[Element], base_element: Element, 
     if re.search('[+*/=-]', script):
         script = f'({script})'
     script = f'{base_element.expression}^{script}'
-    list_exponent_element = list_element[index - 1: end_of_script + 1]
-    exponent = Exponent(expression=script, list_element=list_exponent_element)
+    list_power_element = list_element[index - 1: end_of_script + 1]
+    exponent = Power(expression=script, list_element=list_power_element)
     return exponent
 
 
@@ -1308,9 +1308,9 @@ class Tests(unittest.TestCase):
         ]
         detections.sort(key=lambda x: x[2][0] - x[2][2] / 2)
         list_element = convert_list_detection_to_list_element(detections)
-        self.assertEqual(get_exponent_expression(list_element,
-                                                 Element(box=get_box(detections[0]), expression="x"), 1),
-                         Exponent("x^12"))
+        self.assertEqual(get_power_expression(list_element,
+                                              Element(box=get_box(detections[0]), expression="x"), 1),
+                         Power("x^12"))
         # Untitled5.png
         detections = [
             ("x", 0.4, (0.180997, 0.372924, 0.081599, 0.167774)),
@@ -1327,8 +1327,8 @@ class Tests(unittest.TestCase):
         detections.sort(key=lambda x: x[2][0] - x[2][2] / 2)
         list_element = convert_list_detection_to_list_element(detections)
         self.assertEqual(
-            get_exponent_expression(list_element, Element(box=get_box(detections[0]), expression="x"), 1),
-            Exponent("x^(y^2+3y+1)"))
+            get_power_expression(list_element, Element(box=get_box(detections[0]), expression="x"), 1),
+            Power("x^(y^2+3y+1)"))
 
     def test_get_all_numerator_and_denominator(self):
         # frac1
