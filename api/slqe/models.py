@@ -107,18 +107,21 @@ class Image(models.Model):
 
 
 class ClassVersion(models.Model):
-    version = models.CharField(max_length=255, primary_key=True)
+    id = models.AutoField(primary_key=True, default=None)
+    version = models.CharField(max_length=255, unique=True)
     commit_hash = models.CharField(max_length=255)
-    date_time = models.DateTimeField()
+    created_date = models.DateTimeField(default=datetime.now())
 
     class Meta:
         db_table = 'class_version'
 
 
 class WeightVersion(models.Model):
-    version = models.CharField(max_length=255, primary_key=True)
+    id = models.AutoField(primary_key=True, default=None)
+    version = models.CharField(max_length=255, unique=True)
     url = models.CharField(max_length=255)
-    date_time = models.DateTimeField()
+    created_date = models.DateTimeField(default=datetime.now(), blank=True)
+    is_active = models.BooleanField(default=False)
     class_version = models.ForeignKey(ClassVersion, on_delete=models.CASCADE)
 
     class Meta:

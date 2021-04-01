@@ -1,6 +1,8 @@
 from rest_framework import serializers
 from slqe.models import *
 
+from slqe.models import ClassVersion
+
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -33,3 +35,24 @@ class ImageSerializer(serializers.Serializer):
     success = serializers.BooleanField()
     message = serializers.CharField()
 
+
+class ClassSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ClassVersion
+        fields = ('id',
+                  'version',
+                  'commit_hash',
+                  'created_date',
+                  )
+
+
+class WeightSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = WeightVersion
+        fields = ('id',
+                  'version',
+                  'url',
+                  'created_date',
+                  'is_active',
+                  'class_version'
+                  )

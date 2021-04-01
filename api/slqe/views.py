@@ -6,11 +6,13 @@ import boto3
 import cv2
 from PIL import UnidentifiedImageError
 from django.core.exceptions import ValidationError
+from django.db.models import F
 from django.http.response import *
 from django.utils.datastructures import MultiValueDictKeyError
 from firebase_admin import auth
 from firebase_admin.auth import UserNotFoundError
 from firebase_admin.exceptions import FirebaseError
+from matplotlib.pyplot import cla
 from numpy import asarray
 from processor import algorithm
 from rest_framework.decorators import api_view
@@ -254,3 +256,52 @@ class SlqeApi(APIView):
                 image_serializer = ImageSerializer(image_model)
 
             return JsonResponse(image_serializer.data, status=status.HTTP_201_CREATED)
+
+    @api_view(['GET', 'POST'])
+    def class_list(self):
+        if self.method == 'GET':
+            # get token from header
+            token = self.META.get('HTTP_AUTHORIZATION')
+            # check authentication
+            flag_verify = is_verified(token=token)
+            if not flag_verify:
+                return HttpResponse(status=status.HTTP_401_UNAUTHORIZED)
+
+            # check authorization
+            role = ("ADMIN")
+            flag_permission = is_permitted(token, role)
+            if not flag_permission:
+                return HttpResponse(status=status.HTTP_403_FORBIDDEN)
+
+            version = ClassVersion.objects.all()
+            class_serializer = ClassSerializer(version, many=True)
+            return JsonResponse(class_serializer.data, safe=False)
+        elif self.method == 'POST':
+            version_data = JSONParser().parse(self)
+
+            class_serializer = ClassSerializer(data=version_data)
+            if class_serializer.is_valid():
+                class_serializer.save()
+                return JsonResponse(class_serializer.data, status=status.HTTP_201_CREATED, safe=False)
+
+            return JsonResponse(class_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    @api_view(['GET'])
+    def class_detail(self, class_id):
+        # get token from header
+        token = self.META.get('HTTP_AUTHORIZATION')
+        # check authentication
+        flag_verify = is_verified(token=token)
+        if not flag_verify:
+            return HttpResponse(status=status.HTTP_401_UNAUTHORIZED)
+        # check authorization
+        role = ("ADMIN")
+        flag_permission = is_permitted(token, role)
+        if not flag_permission:
+            return HttpResponse(status=status.HTTP_403_FORBIDDEN)
+        try:
+            version = ClassVersion.objects.get(pk=class_id)
+            class_serializer = ClassSerializer(version)
+            return JsonResponse(class_serializer.data, safe=False)
+        except ClassVersion.DoesNotExist:
+            return JsonResponse({'message': 'The class version does not exist'}, status=status.HTTP_404_NOT_FOUND)
