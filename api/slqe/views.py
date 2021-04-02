@@ -61,8 +61,11 @@ class SlqeApi(APIView):
                 users = User.objects.filter(uid=user_firebase.uid)
                 if users:
                     user = users[0]
-                    return JsonResponse({"user": UserSerializer(user).data, "token": user.token},
+                    if user.is_active:
+                        return JsonResponse({"user": UserSerializer(user).data, "token": user.token},
                                         status=status.HTTP_200_OK, safe=False)
+                    else:
+                        return HttpResponseBadRequest("User inactive")
                 else:
                     user = User.create(email=user_firebase.email, uid=user_firebase.uid, password=None,
                                        phone=user_firebase.phone_number, avatar_url=user_firebase.photo_url,

@@ -4,7 +4,7 @@ import jwt
 from django.conf import settings
 from jwt import DecodeError
 from slqe.models import User
-
+import time
 
 def is_verified(token):
     try:
@@ -15,7 +15,8 @@ def is_verified(token):
         }, settings.SECRET_KEY, algorithm='HS256')
         User.objects.get(uid=payload['id'], is_active=True)
         dt = datetime.now()
-        if token != verify_token or int(dt.strftime('%s')) > payload['exp']:
+        expired = time.mktime(dt.timetuple())
+        if token != verify_token or int(expired) > payload['exp']:
             return False
     except User.DoesNotExist:
         return False

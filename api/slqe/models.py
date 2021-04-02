@@ -3,7 +3,7 @@ from django.db import models
 from django_mysql.models import ListCharField
 import jwt
 from datetime import datetime, timedelta
-
+import time
 
 # Create your models here.
 
@@ -64,10 +64,10 @@ class User(models.Model):
         date set to 60 days into the future.
         """
         dt = datetime.now() + timedelta(days=360)
-
+        expired = time.mktime(dt.timetuple())
         token = jwt.encode({
             'id': self.uid,
-            'exp': int(dt.strftime('%s'))
+            'exp': int(expired)
         }, settings.SECRET_KEY, algorithm='HS256')
 
         return token
