@@ -10,5 +10,5 @@ urlpatterns = [
     url(r'^versions$', SlqeApi.class_list),
     url(r'^versions/(\w+)$', SlqeApi.class_detail),
     url(r'^versions/(\w+)/weights$', SlqeApi.weight_list),
-    url(r'^versions/(\w+)/weights/(\w+)$', SlqeApi.class_weight),
+    url(r'^versions/(\w+)/weights/(\w+)$', SlqeApi.weight_detail),
 ]

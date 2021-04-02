@@ -343,7 +343,7 @@ class SlqeApi(APIView):
             return JsonResponse(weight_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     @api_view(['GET', 'PUT'])
-    def class_weight(self, class_id, weight_id):
+    def weight_detail(self, class_id, weight_id):
         # get token from header
         token = self.META.get('HTTP_AUTHORIZATION')
         # check authentication
