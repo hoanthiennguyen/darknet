@@ -126,3 +126,14 @@ class WeightVersion(models.Model):
 
     class Meta:
         db_table = 'weight_version'
+
+
+class Notification(models.Model):
+    id = models.AutoField(primary_key=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    message = models.CharField(max_length=2550)
+    created_date = models.DateTimeField(default=datetime.now)
+    is_read = models.BooleanField(default=False)
+
+    class Meta:
+        db_table = 'notification'

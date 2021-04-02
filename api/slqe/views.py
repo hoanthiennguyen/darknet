@@ -222,7 +222,7 @@ class SlqeApi(APIView):
             offset, limit = parse_offset_limit(offset, limit)
             images = Image.objects.filter(user=user_id).order_by('-date_time')[offset:offset + limit]
             image_serializer = ImageSerializer(images, many=True)
-            return JsonResponse({"total" : total_image, "data" : image_serializer.data}, safe=False)
+            return JsonResponse({"total": total_image, "data": image_serializer.data}, safe=False)
         elif self.method == 'POST':
             try:
                 file_obj = self.FILES['file']
@@ -390,3 +390,92 @@ class SlqeApi(APIView):
                 return HttpResponse(status=status.HTTP_204_NO_CONTENT)
             except WeightVersion.DoesNotExist:
                 return JsonResponse({'message': 'The weight version does not exist'}, status=status.HTTP_404_NOT_FOUND)
+
+    # Notification
+
+    @api_view(['GET', 'POST'])
+    def notification_list(self, user_id):
+        # get token from header
+        token = self.META.get('HTTP_AUTHORIZATION')
+        # check authentication
+        flag_verify = is_verified(token=token)
+        if not flag_verify:
+            return HttpResponse(status=status.HTTP_401_UNAUTHORIZED)
+
+        # check authorization
+        role = ("ADMIN", "CUSTOMER")
+        flag_permission = is_permitted(token, role)
+        if not flag_permission:
+            return HttpResponse(status=status.HTTP_403_FORBIDDEN)
+        try:
+            payload = jwt.decode(token, settings.SECRET_KEY, algorithms='HS256')
+            user_access = User.objects.get(uid=payload['id'], is_active=True)
+
+            user = User.objects.get(pk=user_id)
+
+            # only owner user can access resources
+            if user_access.id != user.id:
+                return HttpResponse(status=status.HTTP_403_FORBIDDEN)
+        except User.DoesNotExist:
+            return HttpResponse(status=status.HTTP_404_NOT_FOUND)
+        except DecodeError:
+            return HttpResponse(status=status.HTTP_401_UNAUTHORIZED)
+        if self.method == 'GET':
+            notifications = Notification.objects.filter(user=user_id).order_by('-created_date')
+            notification_serializer = NotificationSerializer(notifications, many=True)
+            return JsonResponse(notification_serializer.data, safe=False)
+        elif self.method == 'POST':
+            notification = JSONParser().parse(self)
+            if notification["user"] != user.id:
+                return HttpResponse(status=status.HTTP_403_FORBIDDEN)
+            notification_serializer = NotificationSerializer(data=notification)
+
+            if notification_serializer.is_valid():
+                notification_serializer.save()
+                return HttpResponse(status=status.HTTP_201_CREATED)
+            return HttpResponse(notification_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    @api_view(['GET', 'PUT'])
+    def notification_detail(self, user_id, notification_id):
+        # get token from header
+        token = self.META.get('HTTP_AUTHORIZATION')
+        # check authentication
+        flag_verify = is_verified(token=token)
+        if not flag_verify:
+            return HttpResponse(status=status.HTTP_401_UNAUTHORIZED)
+
+        # check authorization
+        role = ("ADMIN", "CUSTOMER")
+        flag_permission = is_permitted(token, role)
+        if not flag_permission:
+            return HttpResponse(status=status.HTTP_403_FORBIDDEN)
+        try:
+            payload = jwt.decode(token, settings.SECRET_KEY, algorithms='HS256')
+            user_access = User.objects.get(uid=payload['id'], is_active=True)
+
+            user = User.objects.get(pk=user_id)
+
+            # only owner user can access resources
+            if user_access.id != user.id:
+                return HttpResponse(status=status.HTTP_403_FORBIDDEN)
+        except User.DoesNotExist:
+            return HttpResponse(status=status.HTTP_404_NOT_FOUND)
+        except DecodeError:
+            return HttpResponse(status=status.HTTP_401_UNAUTHORIZED)
+        if self.method == 'GET':
+            try:
+                notification = Notification.objects.get(pk=notification_id, user=user_id)
+                notification_serializer = NotificationSerializer(notification)
+
+                return JsonResponse(notification_serializer.data)
+            except Notification.DoesNotExist:
+                return HttpResponse(status=status.HTTP_404_NOT_FOUND)
+        elif self.method == 'PUT':
+            try:
+                notification = Notification.objects.get(pk=notification_id, user=user_id)
+                notification.is_read = True
+                notification.save()
+
+                return HttpResponse(status=status.HTTP_204_NO_CONTENT)
+            except Notification.DoesNotExist:
+                return HttpResponse(status=status.HTTP_404_NOT_FOUND)

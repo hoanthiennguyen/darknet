@@ -56,3 +56,14 @@ class WeightSerializer(serializers.ModelSerializer):
                   'is_active',
                   'class_version',
                   )
+
+class NotificationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Notification
+        fields = ('id',
+                  'user',
+                  'message',
+                  'created_date',
+                  'is_read',
+                  )
+
