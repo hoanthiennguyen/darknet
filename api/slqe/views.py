@@ -20,7 +20,6 @@ from slqe.jwt_utils import *
 from slqe.serializers import *
 from slqe.utils import parse_offset_limit
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -53,7 +52,7 @@ class SlqeApi(APIView):
                 total_user = User.objects.filter(role=Role.customer_role()).count()
                 users = User.objects.filter(role=Role.customer_role())[offset:offset + limit]
             user_serializer = UserSerializer(users, many=True)
-            return JsonResponse({"total" : total_user, "data" : user_serializer.data}, safe=False)
+            return JsonResponse({"total": total_user, "data": user_serializer.data}, safe=False)
         elif self.method == 'POST':
             user_data = JSONParser().parse(self)
             try:
@@ -63,7 +62,7 @@ class SlqeApi(APIView):
                     user = users[0]
                     if user.is_active:
                         return JsonResponse({"user": UserSerializer(user).data, "token": user.token},
-                                        status=status.HTTP_200_OK, safe=False)
+                                            status=status.HTTP_200_OK, safe=False)
                     else:
                         return HttpResponseBadRequest("User inactive")
                 else:
@@ -257,7 +256,7 @@ class SlqeApi(APIView):
 
             return JsonResponse(image_serializer.data, status=status.HTTP_201_CREATED)
 
-#class version
+    # class version
     @api_view(['GET', 'POST'])
     def class_list(self):
         if self.method == 'GET':
@@ -274,9 +273,14 @@ class SlqeApi(APIView):
             if not flag_permission:
                 return HttpResponse(status=status.HTTP_403_FORBIDDEN)
 
+            limit = self.GET.get('limit')
+            offset = self.GET.get('offset')
+            offset, limit = parse_offset_limit(offset, limit)
             version = ClassVersion.objects.all()
+            total = len(version)
+            version = version[offset:offset + limit]
             class_serializer = ClassSerializer(version, many=True)
-            return JsonResponse(class_serializer.data, safe=False)
+            return JsonResponse({"total": total, "data": class_serializer.data}, safe=False)
         elif self.method == 'POST':
             version_data = JSONParser().parse(self)
 
@@ -306,7 +310,8 @@ class SlqeApi(APIView):
             return JsonResponse(class_serializer.data, safe=False)
         except ClassVersion.DoesNotExist:
             return JsonResponse({'message': 'The class version does not exist'}, status=status.HTTP_404_NOT_FOUND)
-#weight version
+
+    # weight version
     @api_view(['GET', 'POST'])
     def weight_list(self, class_id):
 
@@ -323,19 +328,24 @@ class SlqeApi(APIView):
         if not flag_permission:
             return HttpResponse(status=status.HTTP_403_FORBIDDEN)
 
-        versions = WeightVersion.objects.filter(class_version=class_id).order_by('-created_date')
-        print(type(versions))
         if self.method == 'GET':
+            limit = self.GET.get('limit')
+            offset = self.GET.get('offset')
+            offset, limit = parse_offset_limit(offset, limit)
+            versions = WeightVersion.objects.filter(class_version=class_id).order_by('-created_date')
+            total = len(versions)
+            versions = versions[offset:offset + limit]
             weight_serializer = WeightSerializer(versions, many=True)
-            return JsonResponse(weight_serializer.data, safe=False)
+            return JsonResponse({"total": total, "data": weight_serializer.data}, safe=False)
         elif self.method == 'POST':
             version_data = JSONParser().parse(self)
 
             if str(version_data["class_version"]) != class_id:
-                return JsonResponse({"message" : "Conflict class version"}, status=status.HTTP_400_BAD_REQUEST)
+                return JsonResponse({"message": "Conflict class version"}, status=status.HTTP_400_BAD_REQUEST)
 
-            if WeightVersion.objects.filter(class_version=class_id, version = version_data["version"]).exists():
-                return JsonResponse({"message" : "Weight version is exist in class version"}, status=status.HTTP_400_BAD_REQUEST)
+            if WeightVersion.objects.filter(class_version=class_id, version=version_data["version"]).exists():
+                return JsonResponse({"message": "Weight version is exist in class version"},
+                                    status=status.HTTP_400_BAD_REQUEST)
             weight_serializer = WeightSerializer(data=version_data)
             if weight_serializer.is_valid():
                 weight_serializer.save()
@@ -374,11 +384,9 @@ class SlqeApi(APIView):
                 current_version.is_active = False
                 current_version.save()
 
-
                 version.is_active = True
                 version.save()
 
                 return HttpResponse(status=status.HTTP_204_NO_CONTENT)
             except WeightVersion.DoesNotExist:
                 return JsonResponse({'message': 'The weight version does not exist'}, status=status.HTTP_404_NOT_FOUND)
-
