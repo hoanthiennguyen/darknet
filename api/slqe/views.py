@@ -16,11 +16,9 @@ from processor import algorithm
 from rest_framework.decorators import api_view
 from rest_framework.parsers import *
 from rest_framework.views import *
-from slqe.serializers import *
-import logging
-from slqe.utils import parse_offset_limit
-
 from slqe.jwt_utils import *
+from slqe.serializers import *
+from slqe.utils import parse_offset_limit
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +52,7 @@ class SlqeApi(APIView):
                 total_user = User.objects.filter(role=Role.customer_role()).count()
                 users = User.objects.filter(role=Role.customer_role())[offset:offset + limit]
             user_serializer = UserSerializer(users, many=True)
-            return JsonResponse({"total" : total_user, "data" : user_serializer.data}, safe=False)
+            return JsonResponse({"total": total_user, "data": user_serializer.data}, safe=False)
         elif self.method == 'POST':
             user_data = JSONParser().parse(self)
             try:
@@ -62,8 +60,11 @@ class SlqeApi(APIView):
                 users = User.objects.filter(uid=user_firebase.uid)
                 if users:
                     user = users[0]
-                    return JsonResponse({"user": UserSerializer(user).data, "token": user.token},
-                                        status=status.HTTP_200_OK, safe=False)
+                    if user.is_active:
+                        return JsonResponse({"user": UserSerializer(user).data, "token": user.token},
+                                            status=status.HTTP_200_OK, safe=False)
+                    else:
+                        return HttpResponseBadRequest("User inactive")
                 else:
                     user = User.create(email=user_firebase.email, uid=user_firebase.uid, password=None,
                                        phone=user_firebase.phone_number, avatar_url=user_firebase.photo_url,
@@ -254,3 +255,138 @@ class SlqeApi(APIView):
                 image_serializer = ImageSerializer(image_model)
 
             return JsonResponse(image_serializer.data, status=status.HTTP_201_CREATED)
+
+    # class version
+    @api_view(['GET', 'POST'])
+    def class_list(self):
+        if self.method == 'GET':
+            # get token from header
+            token = self.META.get('HTTP_AUTHORIZATION')
+            # check authentication
+            flag_verify = is_verified(token=token)
+            if not flag_verify:
+                return HttpResponse(status=status.HTTP_401_UNAUTHORIZED)
+
+            # check authorization
+            role = ("ADMIN")
+            flag_permission = is_permitted(token, role)
+            if not flag_permission:
+                return HttpResponse(status=status.HTTP_403_FORBIDDEN)
+
+            limit = self.GET.get('limit')
+            offset = self.GET.get('offset')
+            offset, limit = parse_offset_limit(offset, limit)
+            version = ClassVersion.objects.all()
+            total = len(version)
+            version = version[offset:offset + limit]
+            class_serializer = ClassSerializer(version, many=True)
+            return JsonResponse({"total": total, "data": class_serializer.data}, safe=False)
+        elif self.method == 'POST':
+            version_data = JSONParser().parse(self)
+
+            class_serializer = ClassSerializer(data=version_data)
+            if class_serializer.is_valid():
+                class_serializer.save()
+                return JsonResponse(class_serializer.data, status=status.HTTP_201_CREATED, safe=False)
+
+            return JsonResponse(class_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    @api_view(['GET'])
+    def class_detail(self, class_id):
+        # get token from header
+        token = self.META.get('HTTP_AUTHORIZATION')
+        # check authentication
+        flag_verify = is_verified(token=token)
+        if not flag_verify:
+            return HttpResponse(status=status.HTTP_401_UNAUTHORIZED)
+        # check authorization
+        role = ("ADMIN")
+        flag_permission = is_permitted(token, role)
+        if not flag_permission:
+            return HttpResponse(status=status.HTTP_403_FORBIDDEN)
+        try:
+            version = ClassVersion.objects.get(pk=class_id)
+            class_serializer = ClassSerializer(version)
+            return JsonResponse(class_serializer.data, safe=False)
+        except ClassVersion.DoesNotExist:
+            return JsonResponse({'message': 'The class version does not exist'}, status=status.HTTP_404_NOT_FOUND)
+
+    # weight version
+    @api_view(['GET', 'POST'])
+    def weight_list(self, class_id):
+
+        # get token from header
+        token = self.META.get('HTTP_AUTHORIZATION')
+        # check authentication
+        flag_verify = is_verified(token=token)
+        if not flag_verify:
+            return HttpResponse(status=status.HTTP_401_UNAUTHORIZED)
+
+        # check authorization
+        role = ("ADMIN")
+        flag_permission = is_permitted(token, role)
+        if not flag_permission:
+            return HttpResponse(status=status.HTTP_403_FORBIDDEN)
+
+        if self.method == 'GET':
+            limit = self.GET.get('limit')
+            offset = self.GET.get('offset')
+            offset, limit = parse_offset_limit(offset, limit)
+            versions = WeightVersion.objects.filter(class_version=class_id).order_by('-created_date')
+            total = len(versions)
+            versions = versions[offset:offset + limit]
+            weight_serializer = WeightSerializer(versions, many=True)
+            return JsonResponse({"total": total, "data": weight_serializer.data}, safe=False)
+        elif self.method == 'POST':
+            version_data = JSONParser().parse(self)
+
+            if str(version_data["class_version"]) != class_id:
+                return JsonResponse({"message": "Conflict class version"}, status=status.HTTP_400_BAD_REQUEST)
+
+            if WeightVersion.objects.filter(class_version=class_id, version=version_data["version"]).exists():
+                return JsonResponse({"message": "Weight version is exist in class version"},
+                                    status=status.HTTP_400_BAD_REQUEST)
+            weight_serializer = WeightSerializer(data=version_data)
+            if weight_serializer.is_valid():
+                weight_serializer.save()
+                return JsonResponse(weight_serializer.data, status=status.HTTP_201_CREATED, safe=False)
+            return JsonResponse(weight_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    @api_view(['GET', 'PUT'])
+    def weight_detail(self, class_id, weight_id):
+        # get token from header
+        token = self.META.get('HTTP_AUTHORIZATION')
+        # check authentication
+        flag_verify = is_verified(token=token)
+        if not flag_verify:
+            return HttpResponse(status=status.HTTP_401_UNAUTHORIZED)
+        # check authorization
+        role = ("ADMIN")
+        flag_permission = is_permitted(token, role)
+        if not flag_permission:
+            return HttpResponse(status=status.HTTP_403_FORBIDDEN)
+        try:
+            ClassVersion.objects.get(pk=class_id)
+        except ClassVersion.DoesNotExist:
+            return JsonResponse({'message': 'The class version does not exist'}, status=status.HTTP_404_NOT_FOUND)
+        if self.method == 'GET':
+            try:
+                version = WeightVersion.objects.get(pk=weight_id, class_version=class_id)
+                weight_serializer = WeightSerializer(version)
+                return JsonResponse(weight_serializer.data, safe=False)
+            except WeightVersion.DoesNotExist:
+                return JsonResponse({'message': 'The weight version does not exist'}, status=status.HTTP_404_NOT_FOUND)
+        elif self.method == 'PUT':
+            try:
+                version = WeightVersion.objects.get(pk=weight_id, class_version=class_id, is_active=False)
+
+                current_version = WeightVersion.objects.filter(is_active=True).first()
+                current_version.is_active = False
+                current_version.save()
+
+                version.is_active = True
+                version.save()
+
+                return HttpResponse(status=status.HTTP_204_NO_CONTENT)
+            except WeightVersion.DoesNotExist:
+                return JsonResponse({'message': 'The weight version does not exist'}, status=status.HTTP_404_NOT_FOUND)

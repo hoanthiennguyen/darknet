@@ -3,7 +3,7 @@ from django.db import models
 from django_mysql.models import ListCharField
 import jwt
 from datetime import datetime, timedelta
-
+import time
 
 # Create your models here.
 
@@ -64,10 +64,10 @@ class User(models.Model):
         date set to 60 days into the future.
         """
         dt = datetime.now() + timedelta(days=360)
-
+        expired = time.mktime(dt.timetuple())
         token = jwt.encode({
             'id': self.uid,
-            'exp': int(dt.strftime('%s'))
+            'exp': int(expired)
         }, settings.SECRET_KEY, algorithm='HS256')
 
         return token
@@ -107,18 +107,21 @@ class Image(models.Model):
 
 
 class ClassVersion(models.Model):
-    version = models.CharField(max_length=255, primary_key=True)
+    id = models.AutoField(primary_key=True, default=None)
+    version = models.CharField(max_length=255, unique=True)
     commit_hash = models.CharField(max_length=255)
-    date_time = models.DateTimeField()
+    created_date = models.DateTimeField(default=datetime.now)
 
     class Meta:
         db_table = 'class_version'
 
 
 class WeightVersion(models.Model):
-    version = models.CharField(max_length=255, primary_key=True)
+    id = models.AutoField(primary_key=True, default=None)
+    version = models.CharField(max_length=255)
     url = models.CharField(max_length=255)
-    date_time = models.DateTimeField()
+    created_date = models.DateTimeField(default=datetime.now, blank=True)
+    is_active = models.BooleanField(default=False)
     class_version = models.ForeignKey(ClassVersion, on_delete=models.CASCADE)
 
     class Meta:
