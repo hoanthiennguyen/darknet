@@ -313,11 +313,12 @@ class SlqeApi(APIView):
                 return JsonResponse({'message': 'The class version does not exist'}, status=status.HTTP_404_NOT_FOUND)
         elif self.method == 'PUT':
             try:
-
                 version = ClassVersion.objects.get(pk=class_id)
                 request_data = json.loads(self.body)
-                version.commit_hash = request_data['commit_hash']
-                version.save()
+                commit_hash = request_data['commit_hash']
+                if commit_hash is not None or len(commit_hash) > 0:
+                    version.commit_hash
+                    version.save()
                 return HttpResponse(status=status.HTTP_204_NO_CONTENT)
             except User.DoesNotExist:
                 return HttpResponse(status=status.HTTP_404_NOT_FOUND)
@@ -411,14 +412,25 @@ class SlqeApi(APIView):
                 return JsonResponse({'message': 'The weight version does not exist'}, status=status.HTTP_404_NOT_FOUND)
         elif self.method == 'PUT':
             try:
-                version = WeightVersion.objects.get(pk=weight_id, class_version=class_id, is_active=False)
+                version = WeightVersion.objects.get(pk=weight_id)
+                request_data = json.loads(self.body)
+                url = request_data['url']
+                is_active = request_data['is_active']
+                is_save = False
+                if url is not None and len(url) > 0:
+                    version.url = url
+                    is_save = True
 
-                current_version = WeightVersion.objects.filter(is_active=True).first()
-                current_version.is_active = False
-                current_version.save()
+                if is_active:
+                    version.is_active = is_active
+                    current_version = WeightVersion.objects.filter(is_active=True).first()
+                    if current_version:
+                        current_version.is_active = False
+                        current_version.save()
+                    is_save = True
 
-                version.is_active = True
-                version.save()
+                if is_save:
+                    version.save()
 
                 return HttpResponse(status=status.HTTP_204_NO_CONTENT)
             except WeightVersion.DoesNotExist:
