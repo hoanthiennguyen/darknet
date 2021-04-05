@@ -13,4 +13,5 @@ urlpatterns = [
     url(r'^versions/(\w+)/weights/(\w+)$', SlqeApi.weight_detail),
     url(r'^users/(\w+)/notifications$', SlqeApi.notification_list),
     url(r'^users/(\w+)/notifications/(\w+)$', SlqeApi.notification_detail),
+    url(r'^users/(\w+)/notifications/count-unread$', SlqeApi.notification_count_unread),
 ]

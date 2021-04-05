@@ -421,9 +421,14 @@ class SlqeApi(APIView):
         except DecodeError:
             return HttpResponse(status=status.HTTP_401_UNAUTHORIZED)
         if self.method == 'GET':
+            limit = self.GET.get('limit')
+            offset = self.GET.get('offset')
+            offset, limit = parse_offset_limit(offset, limit)
             notifications = Notification.objects.filter(user=user_id).order_by('-created_date')
+            total = len(notifications)
+            notifications = notifications[offset:offset + limit]
             notification_serializer = NotificationSerializer(notifications, many=True)
-            return JsonResponse(notification_serializer.data, safe=False)
+            return JsonResponse({"total": total, "data": notification_serializer.data}, safe=False)
         elif self.method == 'POST':
             notification = JSONParser().parse(self)
             if notification["user"] != user.id:
@@ -479,3 +484,34 @@ class SlqeApi(APIView):
                 return HttpResponse(status=status.HTTP_204_NO_CONTENT)
             except Notification.DoesNotExist:
                 return HttpResponse(status=status.HTTP_404_NOT_FOUND)
+
+    @api_view(['GET'])
+    def notification_count_unread(self, user_id):
+        # get token from header
+        token = self.META.get('HTTP_AUTHORIZATION')
+        # check authentication
+        flag_verify = is_verified(token=token)
+        if not flag_verify:
+            return HttpResponse(status=status.HTTP_401_UNAUTHORIZED)
+
+        # check authorization
+        role = ("ADMIN", "CUSTOMER")
+        flag_permission = is_permitted(token, role)
+        if not flag_permission:
+            return HttpResponse(status=status.HTTP_403_FORBIDDEN)
+        try:
+            payload = jwt.decode(token, settings.SECRET_KEY, algorithms='HS256')
+            user_access = User.objects.get(uid=payload['id'], is_active=True)
+
+            user = User.objects.get(pk=user_id)
+
+            # only owner user can access resources
+            if user_access.id != user.id:
+                return HttpResponse(status=status.HTTP_403_FORBIDDEN)
+
+        except DecodeError:
+            return HttpResponse(status=status.HTTP_401_UNAUTHORIZED)
+        if self.method == 'GET':
+            notifications = Notification.objects.filter(user=user_id, is_read=False)
+            total = len(notifications)
+            return JsonResponse({"total": total}, safe=False)
