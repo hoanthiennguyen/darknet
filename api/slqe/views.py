@@ -276,7 +276,7 @@ class SlqeApi(APIView):
             limit = self.GET.get('limit')
             offset = self.GET.get('offset')
             offset, limit = parse_offset_limit(offset, limit)
-            version = ClassVersion.objects.all()
+            version = ClassVersion.objects.all().order_by('-created_date')
             total = len(version)
             version = version[offset:offset + limit]
             class_serializer = ClassSerializer(version, many=True)
@@ -291,7 +291,7 @@ class SlqeApi(APIView):
 
             return JsonResponse(class_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    @api_view(['GET'])
+    @api_view(['GET', 'PUT'])
     def class_detail(self, class_id):
         # get token from header
         token = self.META.get('HTTP_AUTHORIZATION')
@@ -304,8 +304,41 @@ class SlqeApi(APIView):
         flag_permission = is_permitted(token, role)
         if not flag_permission:
             return HttpResponse(status=status.HTTP_403_FORBIDDEN)
+        if self.method == "GET":
+            try:
+                version = ClassVersion.objects.get(pk=class_id)
+                class_serializer = ClassSerializer(version)
+                return JsonResponse(class_serializer.data, safe=False)
+            except ClassVersion.DoesNotExist:
+                return JsonResponse({'message': 'The class version does not exist'}, status=status.HTTP_404_NOT_FOUND)
+        elif self.method == 'PUT':
+            try:
+
+                version = ClassVersion.objects.get(pk=class_id)
+                request_data = json.loads(self.body)
+                version.commit_hash = request_data['commit_hash']
+                version.save()
+                return HttpResponse(status=status.HTTP_204_NO_CONTENT)
+            except User.DoesNotExist:
+                return HttpResponse(status=status.HTTP_404_NOT_FOUND)
+            except (ValidationError, KeyError):
+                return HttpResponseBadRequest()
+
+    @api_view(['GET'])
+    def get_last_version(self):
+        # get token from header
+        token = self.META.get('HTTP_AUTHORIZATION')
+        # check authentication
+        flag_verify = is_verified(token=token)
+        if not flag_verify:
+            return HttpResponse(status=status.HTTP_401_UNAUTHORIZED)
+        # check authorization
+        role = ("ADMIN")
+        flag_permission = is_permitted(token, role)
+        if not flag_permission:
+            return HttpResponse(status=status.HTTP_403_FORBIDDEN)
         try:
-            version = ClassVersion.objects.get(pk=class_id)
+            version = ClassVersion.objects.order_by('-created_date').first()
             class_serializer = ClassSerializer(version)
             return JsonResponse(class_serializer.data, safe=False)
         except ClassVersion.DoesNotExist:
@@ -392,7 +425,6 @@ class SlqeApi(APIView):
                 return JsonResponse({'message': 'The weight version does not exist'}, status=status.HTTP_404_NOT_FOUND)
 
     # Notification
-
     @api_view(['GET', 'POST'])
     def notification_list(self, user_id):
         # get token from header

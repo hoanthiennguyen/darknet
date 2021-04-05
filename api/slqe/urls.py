@@ -9,6 +9,7 @@ urlpatterns = [
     url(r'^users/(\w+)/images/(\w+)$', SlqeApi.images_detail),
     url(r'^versions$', SlqeApi.class_list),
     url(r'^versions/(\w+)$', SlqeApi.class_detail),
+    url(r'^versions/get-last-version', SlqeApi.get_last_version),
     url(r'^versions/(\w+)/weights$', SlqeApi.weight_list),
     url(r'^versions/(\w+)/weights/(\w+)$', SlqeApi.weight_detail),
     url(r'^users/(\w+)/notifications$', SlqeApi.notification_list),
