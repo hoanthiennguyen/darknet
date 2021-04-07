@@ -65,5 +65,7 @@ class NotificationSerializer(serializers.ModelSerializer):
                   'message',
                   'created_date',
                   'is_read',
+                  'url',
+                  'is_delete',
                   )
 

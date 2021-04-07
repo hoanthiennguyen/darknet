@@ -134,6 +134,8 @@ class Notification(models.Model):
     message = models.CharField(max_length=2550)
     created_date = models.DateTimeField(default=datetime.now)
     is_read = models.BooleanField(default=False)
+    url = models.CharField(max_length=255, default=None)
+    is_delete = models.BooleanField(default=False)
 
     class Meta:
         db_table = 'notification'
