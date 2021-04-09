@@ -5,6 +5,7 @@ import jwt
 from datetime import datetime, timedelta
 import time
 
+
 # Create your models here.
 
 
@@ -123,6 +124,10 @@ class WeightVersion(models.Model):
     created_date = models.DateTimeField(default=datetime.now, blank=True)
     is_active = models.BooleanField(default=False)
     class_version = models.ForeignKey(ClassVersion, on_delete=models.CASCADE)
+
+    @classmethod
+    def create(cls, version, url, created_date, class_version):
+        return cls(version=version, url=url, created_date=created_date, class_version=class_version)
 
     class Meta:
         db_table = 'weight_version'
