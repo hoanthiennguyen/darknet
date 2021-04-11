@@ -183,7 +183,7 @@ class SlqeApi(APIView):
         except Image.DoesNotExist:
             return JsonResponse({'message': 'The image does not exist'}, status=status.HTTP_404_NOT_FOUND)
         if image.user.id != user.id:
-            return JsonResponse({"message": "Unauthorized"}, status=status.HTTP_401_UNAUTHORIZED)
+            return HttpResponse(status=status.HTTP_403_FORBIDDEN)
         if self.method == 'GET':
             image_serializer = ImageSerializer(image)
             return JsonResponse(image_serializer.data, safe=False)
