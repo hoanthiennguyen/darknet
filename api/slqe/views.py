@@ -382,7 +382,7 @@ class SlqeApi(APIView):
             if file_obj:
                 payload = jwt.decode(token, settings.SECRET_KEY, algorithms='HS256')
                 script_dir = Path(os.path.dirname(__file__))
-                parent = script_dir.parent.absolute()
+                parent = script_dir.parent
                 save_path = os.path.join(parent, "weights", payload["id"], str(int(time.mktime(dt.timetuple()))))
                 file_name = file_obj.name
                 Path(f"{save_path}").mkdir(parents=True, exist_ok=True)
@@ -397,7 +397,7 @@ class SlqeApi(APIView):
                 else:
                     version = 1
                 weight = WeightVersion.create(created_date=dt, class_version=class_version, version=version,
-                                              url=completeName)
+                                              url=os.path.relpath(completeName))
                 weight.save()
                 return HttpResponse(status=status.HTTP_201_CREATED)
             else:
