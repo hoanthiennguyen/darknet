@@ -213,9 +213,17 @@ class SlqeApi(APIView):
             if not flag_permission:
                 return HttpResponse(status=status.HTTP_403_FORBIDDEN)
 
+            payload = jwt.decode(token, settings.SECRET_KEY, algorithms='HS256')
+            user_access = User.objects.get(id=payload['id'], is_active=True)
+
             user = User.objects.get(id=user_id, is_active=True)
+
+            if user_access.id != user.id:
+                return HttpResponse(status=status.HTTP_403_FORBIDDEN)
         except User.DoesNotExist:
             return JsonResponse({'message': 'The user does not exist'}, status=status.HTTP_404_NOT_FOUND)
+        except DecodeError:
+            return HttpResponse(status=status.HTTP_401_UNAUTHORIZED)
         if self.method == 'GET':
             total_image = Image.objects.filter(user=user_id).order_by('-date_time').count()
             limit = self.GET.get('limit')
