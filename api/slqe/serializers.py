@@ -43,6 +43,7 @@ class ClassSerializer(serializers.ModelSerializer):
                   'version',
                   'commit_hash',
                   'created_date',
+                  'description',
                   )
 
 
@@ -67,5 +68,6 @@ class NotificationSerializer(serializers.ModelSerializer):
                   'is_read',
                   'url',
                   'is_delete',
+                  'is_success',
                   )
 

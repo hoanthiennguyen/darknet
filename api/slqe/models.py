@@ -112,6 +112,7 @@ class ClassVersion(models.Model):
     version = models.CharField(max_length=255, unique=True)
     commit_hash = models.CharField(max_length=255)
     created_date = models.DateTimeField(default=datetime.now)
+    description = models.CharField(max_length=255, default="")
 
     class Meta:
         db_table = 'class_version'
@@ -141,6 +142,7 @@ class Notification(models.Model):
     is_read = models.BooleanField(default=False)
     url = models.CharField(max_length=255, default=None)
     is_delete = models.BooleanField(default=False)
+    is_success = models.BooleanField(default=False)
 
     class Meta:
         db_table = 'notification'
