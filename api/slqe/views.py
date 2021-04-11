@@ -97,7 +97,7 @@ class SlqeApi(APIView):
                     return HttpResponse(status=status.HTTP_403_FORBIDDEN)
 
                 payload = jwt.decode(token, settings.SECRET_KEY, algorithms='HS256')
-                user_access = User.objects.get(uid=payload['id'], is_active=True)
+                user_access = User.objects.get(id=payload['id'], is_active=True)
 
                 user = User.objects.get(pk=user_id)
                 user_serializer = UserSerializer(user)
@@ -496,7 +496,7 @@ class SlqeApi(APIView):
             return HttpResponse(status=status.HTTP_403_FORBIDDEN)
         try:
             payload = jwt.decode(token, settings.SECRET_KEY, algorithms='HS256')
-            user_access = User.objects.get(uid=payload['id'], is_active=True)
+            user_access = User.objects.get(id=payload['id'], is_active=True)
 
             user = User.objects.get(pk=user_id)
 
@@ -543,7 +543,7 @@ class SlqeApi(APIView):
             return HttpResponse(status=status.HTTP_403_FORBIDDEN)
         try:
             payload = jwt.decode(token, settings.SECRET_KEY, algorithms='HS256')
-            user_access = User.objects.get(uid=payload['id'], is_active=True)
+            user_access = User.objects.get(id=payload['id'], is_active=True)
 
             user = User.objects.get(pk=user_id)
 
@@ -575,7 +575,7 @@ class SlqeApi(APIView):
             return HttpResponse(status=status.HTTP_403_FORBIDDEN)
         try:
             payload = jwt.decode(token, settings.SECRET_KEY, algorithms='HS256')
-            user_access = User.objects.get(uid=payload['id'], is_active=True)
+            user_access = User.objects.get(id=payload['id'], is_active=True)
 
             user = User.objects.get(pk=user_id)
 
@@ -620,7 +620,7 @@ class SlqeApi(APIView):
             return HttpResponse(status=status.HTTP_403_FORBIDDEN)
         try:
             payload = jwt.decode(token, settings.SECRET_KEY, algorithms='HS256')
-            user_access = User.objects.get(uid=payload['id'], is_active=True)
+            user_access = User.objects.get(id=payload['id'], is_active=True)
 
             user = User.objects.get(pk=user_id)
 

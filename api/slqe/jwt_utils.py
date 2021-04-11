@@ -13,7 +13,7 @@ def is_verified(token):
             'id': payload['id'],
             'exp': payload['exp']
         }, settings.SECRET_KEY, algorithm='HS256')
-        User.objects.get(uid=payload['id'], is_active=True)
+        User.objects.get(id=payload['id'], is_active=True)
         dt = datetime.now()
         expired = time.mktime(dt.timetuple())
         if token != verify_token or int(expired) > payload['exp']:
@@ -32,7 +32,7 @@ def is_verified(token):
 def is_permitted(token, roles):
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms='HS256')
-        user = User.objects.get(uid=payload['id'], is_active=True)
+        user = User.objects.get(id=payload['id'], is_active=True)
 
         if user.role.name in roles:
             return True

@@ -67,7 +67,7 @@ class User(models.Model):
         dt = datetime.now() + timedelta(days=360)
         expired = time.mktime(dt.timetuple())
         token = jwt.encode({
-            'id': self.uid,
+            'id': self.id,
             'exp': int(expired)
         }, settings.SECRET_KEY, algorithm='HS256')
 
