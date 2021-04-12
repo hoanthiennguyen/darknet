@@ -325,8 +325,14 @@ class SlqeApi(APIView):
                 version = ClassVersion.objects.get(pk=class_id)
                 request_data = json.loads(self.body)
                 commit_hash = request_data['commit_hash']
-                if commit_hash is not None or len(commit_hash) > 0:
-                    version.commit_hash
+                description = request_data['description']
+                is_save = False
+                if commit_hash is not None and len(commit_hash) > 0:
+                    version.commit_hash = commit_hash
+                if description is not None and len(description) > 0:
+                    version.description = description
+
+                if is_save:
                     version.save()
                 return HttpResponse(status=status.HTTP_204_NO_CONTENT)
             except User.DoesNotExist:
