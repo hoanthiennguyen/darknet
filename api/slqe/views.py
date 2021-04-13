@@ -610,9 +610,20 @@ class SlqeApi(APIView):
                 return HttpResponse(status=status.HTTP_404_NOT_FOUND)
         elif self.method == 'PUT':
             try:
+                request_data = json.loads(self.body)
+                is_read = request_data["is_read"]
+                is_success = request_data["is_success"]
                 notification = Notification.objects.get(pk=notification_id, user=user_id)
-                notification.is_read = True
-                notification.save()
+                is_save = False
+                if is_read:
+                    notification.is_read = True
+                    is_save = True
+                if is_success is False:
+                    notification.is_success = False
+                    is_save = True
+
+                if is_save:
+                    notification.save()
 
                 return HttpResponse(status=status.HTTP_204_NO_CONTENT)
             except Notification.DoesNotExist:
