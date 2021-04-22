@@ -3,6 +3,8 @@ from math import log
 
 from solver.polynomial import parse_to_polynomial
 
+INFINITE_NUMBER_OF_ROOTS = "Infinite number of roots"
+
 
 def convert_from_epsilon_to_n_digit(epsilon):
     return round(-log(epsilon, 10)) - 1
@@ -102,7 +104,7 @@ def solve_equation(polynomial, epsilon):
         if polynomial.get_coefficient(0) != 0:
             return []
         else:
-            return ["Infinite roots"]
+            return [INFINITE_NUMBER_OF_ROOTS]
 
     if polynomial.get_highest_degree() == 1:
         [a, b] = polynomial.get_full_coefficient()
@@ -125,7 +127,7 @@ def parse_and_solve_and_round(expression, epsilon):
             b = parse_to_polynomial(expression[index_of_equal+1:])
             roots = solve_equation(a.minus(b), epsilon)
 
-    if roots == ["Infinite roots"]:
+    if roots == [INFINITE_NUMBER_OF_ROOTS]:
         return roots
     n_digits = convert_from_epsilon_to_n_digit(epsilon)
     return list(map(lambda root: round(root, n_digits), roots))
@@ -191,7 +193,7 @@ class Tests(unittest.TestCase):
 
         polynomial = parse_to_polynomial("0*x+0")
         roots = solve_equation(polynomial, epsilon)
-        self.assertEqual(roots, ["Infinite roots"])
+        self.assertEqual(roots, [INFINITE_NUMBER_OF_ROOTS])
 
         polynomial = parse_to_polynomial("11*x+6")
         roots = solve_equation(polynomial, epsilon)
@@ -261,7 +263,7 @@ class Tests(unittest.TestCase):
 
         expression = "0*x+0"
         roots = parse_and_solve_and_round(expression, epsilon)
-        expected_roots = ["Infinite roots"]
+        expected_roots = [INFINITE_NUMBER_OF_ROOTS]
         self.assertEqual(roots, expected_roots)
 
         expression = "x^5-5*x^3+4=0"
