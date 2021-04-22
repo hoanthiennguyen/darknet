@@ -56,6 +56,8 @@ class WeightSerializer(serializers.ModelSerializer):
                   'created_date',
                   'is_active',
                   'class_version',
+                  'loss_function_path',
+                  'log_path',
                   )
 
 class NotificationSerializer(serializers.ModelSerializer):
@@ -69,5 +71,7 @@ class NotificationSerializer(serializers.ModelSerializer):
                   'url',
                   'is_delete',
                   'is_success',
+                  'loss_function_path',
+                  'log_path',
                   )
 

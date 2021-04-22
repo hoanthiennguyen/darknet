@@ -125,6 +125,8 @@ class WeightVersion(models.Model):
     created_date = models.DateTimeField(default=datetime.now, blank=True)
     is_active = models.BooleanField(default=False)
     class_version = models.ForeignKey(ClassVersion, on_delete=models.CASCADE)
+    loss_function_path = models.CharField(max_length=255, default="")
+    log_path = models.CharField(max_length=255, default="")
 
     @classmethod
     def create(cls, version, url, created_date, class_version):
@@ -143,6 +145,8 @@ class Notification(models.Model):
     url = models.CharField(max_length=255, default=None)
     is_delete = models.BooleanField(default=False)
     is_success = models.BooleanField(default=False)
+    loss_function_path = models.CharField(max_length=255, default="")
+    log_path = models.CharField(max_length=255, default="")
 
     class Meta:
         db_table = 'notification'
