@@ -32,14 +32,16 @@ def find_root_using_bisection(polynomial, epsilon, lower, upper, upper_included=
 
     if polynomial.eval(lower) * polynomial.eval(upper) > 0:
         return None
-
+    MAX_ITERATIONS = 100
+    i = 0
     middle = (lower + upper) / 2
-    while abs(polynomial.eval(middle)) > epsilon:
+    while abs(polynomial.eval(middle)) > epsilon and i < MAX_ITERATIONS:
         if polynomial.eval(middle) * polynomial.eval(upper) > 0:
             upper = middle
         else:
             lower = middle
         middle = (lower + upper) / 2
+        i = i + 1
 
     n_digits = convert_from_epsilon_to_n_digit(epsilon)
     middle = try_round_root(polynomial, middle, n_digits)
@@ -294,4 +296,9 @@ class Tests(unittest.TestCase):
         expression = "3*x^2=0"
         roots = parse_and_solve_and_round(expression, epsilon)
         expected_roots = [0]
+        self.assertEqual(roots, expected_roots)
+
+        expression = "(x-10)^10=10000"
+        roots = parse_and_solve_and_round(expression, epsilon)
+        expected_roots = [7.4881, 12.5119]
         self.assertEqual(roots, expected_roots)
