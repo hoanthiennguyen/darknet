@@ -6,6 +6,7 @@ from processor import darknet
 from processor.object_to_string import convert_detections_to_expression, normalize_expression, convert_infix_to_latex
 from solver import solve
 from solver.error import ExpressionSyntaxError, EvaluationError
+from solver.solve import INFINITE_NUMBER_OF_ROOTS
 
 
 def image_detection(image, network, class_names, class_colors, thresh):
@@ -60,7 +61,7 @@ def process(image):
             expression_to_solve, variable = normalize_before_solve(expression)
             roots = solve.parse_and_solve_and_round(expression_to_solve, 0.00001)
             if roots:
-                if roots != ["Infinite roots"]:
+                if roots != [INFINITE_NUMBER_OF_ROOTS]:
                     roots = list(map(lambda x: variable + " = " + str(x), roots))
             else:
                 roots = ["No roots"]
