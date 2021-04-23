@@ -392,30 +392,43 @@ class SlqeApi(APIView):
             return JsonResponse({"total": total, "data": weight_serializer.data}, safe=False)
         elif self.method == 'POST':
             dt = datetime.now()
-            file_obj = self.FILES['file']
-            if file_obj:
+            weight_obj = self.FILES['weight']
+            loss_obj = self.FILES['loss']
+            log_obj = self.FILES['log']
+            if weight_obj and loss_obj and log_obj:
                 payload = jwt.decode(token, settings.SECRET_KEY, algorithms='HS256')
                 script_dir = Path(os.path.dirname(__file__))
                 parent = script_dir.parent
                 save_path = os.path.join(parent, "weights", str(payload["id"]), str(int(time.mktime(dt.timetuple()))))
-                file_name = "updated_weights.weights"
+                weight_name = "updated_weights.weights"
+                loss_name = "chart.png"
+                log_name = "train.log"
                 Path(f"{save_path}").mkdir(parents=True, exist_ok=True)
-                completeName = os.path.join(save_path, file_name)
+                weight_complete_name = os.path.join(save_path, weight_name)
+                loss_complete_name = os.path.join(save_path, loss_name)
+                log_complete_name = os.path.join(save_path, log_name)
 
-                # open read and write the file into the server
-                open(completeName, 'wb').write(file_obj.file.read())
+                # open read and write the weight into the server
+                open(weight_complete_name, 'wb').write(weight_obj.file.read())
+                # open read and write the log into the server
+                open(log_complete_name, 'wb').write(log_obj.file.read())
+                # open read and write the loss chart into the server
+                open(loss_complete_name, 'wb').write(loss_obj.file.read())
 
                 version = WeightVersion.objects.filter(class_version=class_id).order_by('-created_date').first()
                 if version:
                     version = int(version.version) + 1
                 else:
                     version = 1
-                weight = WeightVersion.create(created_date=dt, class_version=class_version, version=version,
-                                              url=os.path.relpath(completeName))
+                weight = WeightVersion.create(class_version=class_version, version=version,
+                                              url=os.path.relpath(weight_complete_name),
+                                              loss_function_path=os.path.relpath(loss_complete_name),
+                                              log_path=os.path.relpath(log_complete_name)
+                                              )
                 weight.save()
                 return HttpResponse(status=status.HTTP_201_CREATED)
             else:
-                return JsonResponse({"message": "Please select weight to create."},
+                return JsonResponse({"message": "Please select weight, log and loss chart to create."},
                                     status=status.HTTP_400_BAD_REQUEST)
 
     @api_view(['GET', 'PUT'])

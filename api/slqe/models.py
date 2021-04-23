@@ -129,8 +129,9 @@ class WeightVersion(models.Model):
     log_path = models.CharField(max_length=255, default="")
 
     @classmethod
-    def create(cls, version, url, created_date, class_version):
-        return cls(version=version, url=url, created_date=created_date, class_version=class_version)
+    def create(cls, version, url, class_version, loss_function_path, log_path):
+        return cls(version=version, url=url, class_version=class_version, loss_function_path=loss_function_path,
+                   log_path=log_path)
 
     class Meta:
         db_table = 'weight_version'
