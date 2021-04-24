@@ -43,6 +43,7 @@ class ClassSerializer(serializers.ModelSerializer):
                   'version',
                   'commit_hash',
                   'created_date',
+                  'description',
                   )
 
 
@@ -55,6 +56,8 @@ class WeightSerializer(serializers.ModelSerializer):
                   'created_date',
                   'is_active',
                   'class_version',
+                  'loss_function_path',
+                  'log_path',
                   )
 
 class NotificationSerializer(serializers.ModelSerializer):
@@ -65,5 +68,10 @@ class NotificationSerializer(serializers.ModelSerializer):
                   'message',
                   'created_date',
                   'is_read',
+                  'url',
+                  'is_delete',
+                  'is_success',
+                  'loss_function_path',
+                  'log_path',
                   )
 

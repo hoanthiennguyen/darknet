@@ -19,6 +19,7 @@ from rest_framework.views import *
 from slqe.jwt_utils import *
 from slqe.serializers import *
 from slqe.utils import parse_offset_limit
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -96,7 +97,7 @@ class SlqeApi(APIView):
                     return HttpResponse(status=status.HTTP_403_FORBIDDEN)
 
                 payload = jwt.decode(token, settings.SECRET_KEY, algorithms='HS256')
-                user_access = User.objects.get(uid=payload['id'], is_active=True)
+                user_access = User.objects.get(id=payload['id'], is_active=True)
 
                 user = User.objects.get(pk=user_id)
                 user_serializer = UserSerializer(user)
@@ -182,7 +183,7 @@ class SlqeApi(APIView):
         except Image.DoesNotExist:
             return JsonResponse({'message': 'The image does not exist'}, status=status.HTTP_404_NOT_FOUND)
         if image.user.id != user.id:
-            return JsonResponse({"message": "Unauthorized"}, status=status.HTTP_401_UNAUTHORIZED)
+            return HttpResponse(status=status.HTTP_403_FORBIDDEN)
         if self.method == 'GET':
             image_serializer = ImageSerializer(image)
             return JsonResponse(image_serializer.data, safe=False)
@@ -212,9 +213,17 @@ class SlqeApi(APIView):
             if not flag_permission:
                 return HttpResponse(status=status.HTTP_403_FORBIDDEN)
 
+            payload = jwt.decode(token, settings.SECRET_KEY, algorithms='HS256')
+            user_access = User.objects.get(id=payload['id'], is_active=True)
+
             user = User.objects.get(id=user_id, is_active=True)
+
+            if user_access.id != user.id:
+                return HttpResponse(status=status.HTTP_403_FORBIDDEN)
         except User.DoesNotExist:
             return JsonResponse({'message': 'The user does not exist'}, status=status.HTTP_404_NOT_FOUND)
+        except DecodeError:
+            return HttpResponse(status=status.HTTP_401_UNAUTHORIZED)
         if self.method == 'GET':
             total_image = Image.objects.filter(user=user_id).order_by('-date_time').count()
             limit = self.GET.get('limit')
@@ -275,8 +284,9 @@ class SlqeApi(APIView):
 
             limit = self.GET.get('limit')
             offset = self.GET.get('offset')
+            version_name = self.GET.get('version_name')
             offset, limit = parse_offset_limit(offset, limit)
-            version = ClassVersion.objects.all()
+            version = ClassVersion.objects.filter(version__icontains=version_name).order_by('-created_date')
             total = len(version)
             version = version[offset:offset + limit]
             class_serializer = ClassSerializer(version, many=True)
@@ -291,7 +301,7 @@ class SlqeApi(APIView):
 
             return JsonResponse(class_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    @api_view(['GET'])
+    @api_view(['GET', 'PUT'])
     def class_detail(self, class_id):
         # get token from header
         token = self.META.get('HTTP_AUTHORIZATION')
@@ -304,12 +314,53 @@ class SlqeApi(APIView):
         flag_permission = is_permitted(token, role)
         if not flag_permission:
             return HttpResponse(status=status.HTTP_403_FORBIDDEN)
-        try:
-            version = ClassVersion.objects.get(pk=class_id)
-            class_serializer = ClassSerializer(version)
-            return JsonResponse(class_serializer.data, safe=False)
-        except ClassVersion.DoesNotExist:
-            return JsonResponse({'message': 'The class version does not exist'}, status=status.HTTP_404_NOT_FOUND)
+        if self.method == "GET":
+            try:
+                version = ClassVersion.objects.get(pk=class_id)
+                class_serializer = ClassSerializer(version)
+                return JsonResponse(class_serializer.data, safe=False)
+            except ClassVersion.DoesNotExist:
+                return JsonResponse({'message': 'The class version does not exist'}, status=status.HTTP_404_NOT_FOUND)
+        elif self.method == 'PUT':
+            try:
+                version = ClassVersion.objects.get(pk=class_id)
+                request_data = json.loads(self.body)
+                commit_hash = request_data['commit_hash']
+                description = request_data['description']
+                is_save = False
+                if commit_hash is not None and len(commit_hash) > 0:
+                    version.commit_hash = commit_hash
+                if description is not None and len(description) > 0:
+                    version.description = description
+
+                if is_save:
+                    version.save()
+                return HttpResponse(status=status.HTTP_204_NO_CONTENT)
+            except User.DoesNotExist:
+                return HttpResponse(status=status.HTTP_404_NOT_FOUND)
+            except (ValidationError, KeyError):
+                return HttpResponseBadRequest()
+
+    @api_view(['GET'])
+    def class_get_last_version(self):
+        # get token from header
+        token = self.META.get('HTTP_AUTHORIZATION')
+        # check authentication
+        flag_verify = is_verified(token=token)
+        if not flag_verify:
+            return HttpResponse(status=status.HTTP_401_UNAUTHORIZED)
+        # check authorization
+        role = ("ADMIN")
+        flag_permission = is_permitted(token, role)
+        if not flag_permission:
+            return HttpResponse(status=status.HTTP_403_FORBIDDEN)
+
+        if self.method == 'GET':
+            version = ClassVersion.objects.order_by('-created_date').first()
+            if version:
+                class_serializer = ClassSerializer(version)
+                return JsonResponse(class_serializer.data, safe=False)
+            return HttpResponse(status=status.HTTP_200_OK)
 
     # weight version
     @api_view(['GET', 'POST'])
@@ -327,30 +378,61 @@ class SlqeApi(APIView):
         flag_permission = is_permitted(token, role)
         if not flag_permission:
             return HttpResponse(status=status.HTTP_403_FORBIDDEN)
-
+        try:
+            class_version = ClassVersion.objects.get(pk=class_id)
+        except ClassVersion.DoesNotExist:
+            return JsonResponse({'message': 'The class version does not exist'}, status=status.HTTP_404_NOT_FOUND)
         if self.method == 'GET':
             limit = self.GET.get('limit')
             offset = self.GET.get('offset')
+            version_name = self.GET.get('version_name')
             offset, limit = parse_offset_limit(offset, limit)
-            versions = WeightVersion.objects.filter(class_version=class_id).order_by('-created_date')
+            versions = WeightVersion.objects.filter(class_version=class_id, version__icontains=version_name).order_by(
+                '-created_date')
             total = len(versions)
             versions = versions[offset:offset + limit]
             weight_serializer = WeightSerializer(versions, many=True)
             return JsonResponse({"total": total, "data": weight_serializer.data}, safe=False)
         elif self.method == 'POST':
-            version_data = JSONParser().parse(self)
+            dt = datetime.now()
+            weight_obj = self.FILES['weight']
+            loss_obj = self.FILES['loss']
+            log_obj = self.FILES['log']
+            if weight_obj and loss_obj and log_obj:
+                payload = jwt.decode(token, settings.SECRET_KEY, algorithms='HS256')
+                script_dir = Path(os.path.dirname(__file__))
+                parent = script_dir.parent
+                save_path = os.path.join(parent, "weights", str(payload["id"]), str(int(time.mktime(dt.timetuple()))))
+                weight_name = "updated_weights.weights"
+                loss_name = "chart.png"
+                log_name = "train.log"
+                Path(f"{save_path}").mkdir(parents=True, exist_ok=True)
+                weight_complete_name = os.path.join(save_path, weight_name)
+                loss_complete_name = os.path.join(save_path, loss_name)
+                log_complete_name = os.path.join(save_path, log_name)
 
-            if str(version_data["class_version"]) != class_id:
-                return JsonResponse({"message": "Conflict class version"}, status=status.HTTP_400_BAD_REQUEST)
+                # open read and write the weight into the server
+                open(weight_complete_name, 'wb').write(weight_obj.file.read())
+                # open read and write the log into the server
+                open(log_complete_name, 'wb').write(log_obj.file.read())
+                # open read and write the loss chart into the server
+                open(loss_complete_name, 'wb').write(loss_obj.file.read())
 
-            if WeightVersion.objects.filter(class_version=class_id, version=version_data["version"]).exists():
-                return JsonResponse({"message": "Weight version is exist in class version"},
+                version = WeightVersion.objects.filter(class_version=class_id).order_by('-created_date').first()
+                if version:
+                    version = int(version.version) + 1
+                else:
+                    version = 1
+                weight = WeightVersion.create(class_version=class_version, version=version,
+                                              url=os.path.relpath(weight_complete_name),
+                                              loss_function_path=os.path.relpath(loss_complete_name),
+                                              log_path=os.path.relpath(log_complete_name)
+                                              )
+                weight.save()
+                return HttpResponse(status=status.HTTP_201_CREATED)
+            else:
+                return JsonResponse({"message": "Please select weight, log and loss chart to create."},
                                     status=status.HTTP_400_BAD_REQUEST)
-            weight_serializer = WeightSerializer(data=version_data)
-            if weight_serializer.is_valid():
-                weight_serializer.save()
-                return JsonResponse(weight_serializer.data, status=status.HTTP_201_CREATED, safe=False)
-            return JsonResponse(weight_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     @api_view(['GET', 'PUT'])
     def weight_detail(self, class_id, weight_id):
@@ -378,22 +460,57 @@ class SlqeApi(APIView):
                 return JsonResponse({'message': 'The weight version does not exist'}, status=status.HTTP_404_NOT_FOUND)
         elif self.method == 'PUT':
             try:
-                version = WeightVersion.objects.get(pk=weight_id, class_version=class_id, is_active=False)
+                version = WeightVersion.objects.get(pk=weight_id)
+                request_data = json.loads(self.body)
+                url = request_data['url']
+                is_active = request_data['is_active']
+                is_save = False
+                if url is not None and len(url) > 0:
+                    version.url = url
+                    is_save = True
 
-                current_version = WeightVersion.objects.filter(is_active=True).first()
-                current_version.is_active = False
-                current_version.save()
+                if is_active:
+                    version.is_active = is_active
+                    current_version = WeightVersion.objects.filter(is_active=True).first()
+                    if current_version:
+                        current_version.is_active = False
+                        current_version.save()
+                    is_save = True
 
-                version.is_active = True
-                version.save()
+                if is_save:
+                    version.save()
 
                 return HttpResponse(status=status.HTTP_204_NO_CONTENT)
             except WeightVersion.DoesNotExist:
                 return JsonResponse({'message': 'The weight version does not exist'}, status=status.HTTP_404_NOT_FOUND)
 
-    # Notification
+    @api_view(['GET'])
+    def weight_get_last_version(self, class_id):
+        # get token from header
+        token = self.META.get('HTTP_AUTHORIZATION')
+        # check authentication
+        flag_verify = is_verified(token=token)
+        if not flag_verify:
+            return HttpResponse(status=status.HTTP_401_UNAUTHORIZED)
+        # check authorization
+        role = ("ADMIN")
+        flag_permission = is_permitted(token, role)
+        if not flag_permission:
+            return HttpResponse(status=status.HTTP_403_FORBIDDEN)
+        try:
+            ClassVersion.objects.get(pk=class_id)
+        except ClassVersion.DoesNotExist:
+            return JsonResponse({'message': 'The class version does not exist'}, status=status.HTTP_404_NOT_FOUND)
 
-    @api_view(['GET', 'POST'])
+        if self.method == 'GET':
+            version = WeightVersion.objects.filter(class_version=class_id).order_by('-created_date').first()
+            if version:
+                weight_serializer = WeightSerializer(version)
+                return JsonResponse(weight_serializer.data, safe=False)
+            return HttpResponse(status=status.HTTP_200_OK)
+
+    # Notification
+    @api_view(['GET', 'POST', 'DELETE'])
     def notification_list(self, user_id):
         # get token from header
         token = self.META.get('HTTP_AUTHORIZATION')
@@ -409,7 +526,7 @@ class SlqeApi(APIView):
             return HttpResponse(status=status.HTTP_403_FORBIDDEN)
         try:
             payload = jwt.decode(token, settings.SECRET_KEY, algorithms='HS256')
-            user_access = User.objects.get(uid=payload['id'], is_active=True)
+            user_access = User.objects.get(id=payload['id'], is_active=True)
 
             user = User.objects.get(pk=user_id)
 
@@ -421,9 +538,14 @@ class SlqeApi(APIView):
         except DecodeError:
             return HttpResponse(status=status.HTTP_401_UNAUTHORIZED)
         if self.method == 'GET':
-            notifications = Notification.objects.filter(user=user_id).order_by('-created_date')
+            limit = self.GET.get('limit')
+            offset = self.GET.get('offset')
+            offset, limit = parse_offset_limit(offset, limit)
+            notifications = Notification.objects.filter(user=user_id, is_delete=False).order_by('-created_date')
+            total = len(notifications)
+            notifications = notifications[offset:offset + limit]
             notification_serializer = NotificationSerializer(notifications, many=True)
-            return JsonResponse(notification_serializer.data, safe=False)
+            return JsonResponse({"total": total, "data": notification_serializer.data}, safe=False)
         elif self.method == 'POST':
             notification = JSONParser().parse(self)
             if notification["user"] != user.id:
@@ -434,6 +556,38 @@ class SlqeApi(APIView):
                 notification_serializer.save()
                 return HttpResponse(status=status.HTTP_201_CREATED)
             return HttpResponse(notification_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    @api_view(['DELETE'])
+    def notification_delete_all_read(self, user_id):
+        # get token from header
+        token = self.META.get('HTTP_AUTHORIZATION')
+        # check authentication
+        flag_verify = is_verified(token=token)
+        if not flag_verify:
+            return HttpResponse(status=status.HTTP_401_UNAUTHORIZED)
+
+        # check authorization
+        role = ("ADMIN", "CUSTOMER")
+        flag_permission = is_permitted(token, role)
+        if not flag_permission:
+            return HttpResponse(status=status.HTTP_403_FORBIDDEN)
+        try:
+            payload = jwt.decode(token, settings.SECRET_KEY, algorithms='HS256')
+            user_access = User.objects.get(id=payload['id'], is_active=True)
+
+            user = User.objects.get(pk=user_id)
+
+            # only owner user can access resources
+            if user_access.id != user.id:
+                return HttpResponse(status=status.HTTP_403_FORBIDDEN)
+        except User.DoesNotExist:
+            return HttpResponse(status=status.HTTP_404_NOT_FOUND)
+        except DecodeError:
+            return HttpResponse(status=status.HTTP_401_UNAUTHORIZED)
+
+        if self.method == 'DELETE':
+            notifications = Notification.objects.filter(is_read=True, user=user_id).update(is_delete=True)
+        return HttpResponse(status=status.HTTP_204_NO_CONTENT)
 
     @api_view(['GET', 'PUT'])
     def notification_detail(self, user_id, notification_id):
@@ -451,7 +605,7 @@ class SlqeApi(APIView):
             return HttpResponse(status=status.HTTP_403_FORBIDDEN)
         try:
             payload = jwt.decode(token, settings.SECRET_KEY, algorithms='HS256')
-            user_access = User.objects.get(uid=payload['id'], is_active=True)
+            user_access = User.objects.get(id=payload['id'], is_active=True)
 
             user = User.objects.get(pk=user_id)
 
@@ -472,10 +626,52 @@ class SlqeApi(APIView):
                 return HttpResponse(status=status.HTTP_404_NOT_FOUND)
         elif self.method == 'PUT':
             try:
+                request_data = json.loads(self.body)
+                is_read = request_data["is_read"]
+                is_success = request_data["is_success"]
                 notification = Notification.objects.get(pk=notification_id, user=user_id)
-                notification.is_read = True
-                notification.save()
+                is_save = False
+                if is_read:
+                    notification.is_read = True
+                    is_save = True
+                if is_success is False:
+                    notification.is_success = False
+                    is_save = True
+
+                if is_save:
+                    notification.save()
 
                 return HttpResponse(status=status.HTTP_204_NO_CONTENT)
             except Notification.DoesNotExist:
                 return HttpResponse(status=status.HTTP_404_NOT_FOUND)
+
+    @api_view(['GET'])
+    def notification_count_unread(self, user_id):
+        # get token from header
+        token = self.META.get('HTTP_AUTHORIZATION')
+        # check authentication
+        flag_verify = is_verified(token=token)
+        if not flag_verify:
+            return HttpResponse(status=status.HTTP_401_UNAUTHORIZED)
+
+        # check authorization
+        role = ("ADMIN", "CUSTOMER")
+        flag_permission = is_permitted(token, role)
+        if not flag_permission:
+            return HttpResponse(status=status.HTTP_403_FORBIDDEN)
+        try:
+            payload = jwt.decode(token, settings.SECRET_KEY, algorithms='HS256')
+            user_access = User.objects.get(id=payload['id'], is_active=True)
+
+            user = User.objects.get(pk=user_id)
+
+            # only owner user can access resources
+            if user_access.id != user.id:
+                return HttpResponse(status=status.HTTP_403_FORBIDDEN)
+
+        except DecodeError:
+            return HttpResponse(status=status.HTTP_401_UNAUTHORIZED)
+        if self.method == 'GET':
+            notifications = Notification.objects.filter(user=user_id, is_read=False)
+            total = len(notifications)
+            return JsonResponse({"total": total}, safe=False)

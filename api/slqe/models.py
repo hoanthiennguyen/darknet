@@ -5,6 +5,7 @@ import jwt
 from datetime import datetime, timedelta
 import time
 
+
 # Create your models here.
 
 
@@ -66,7 +67,7 @@ class User(models.Model):
         dt = datetime.now() + timedelta(days=360)
         expired = time.mktime(dt.timetuple())
         token = jwt.encode({
-            'id': self.uid,
+            'id': self.id,
             'exp': int(expired)
         }, settings.SECRET_KEY, algorithm='HS256')
 
@@ -111,6 +112,7 @@ class ClassVersion(models.Model):
     version = models.CharField(max_length=255, unique=True)
     commit_hash = models.CharField(max_length=255)
     created_date = models.DateTimeField(default=datetime.now)
+    description = models.CharField(max_length=255, default="")
 
     class Meta:
         db_table = 'class_version'
@@ -123,6 +125,13 @@ class WeightVersion(models.Model):
     created_date = models.DateTimeField(default=datetime.now, blank=True)
     is_active = models.BooleanField(default=False)
     class_version = models.ForeignKey(ClassVersion, on_delete=models.CASCADE)
+    loss_function_path = models.CharField(max_length=255, default="")
+    log_path = models.CharField(max_length=255, default="")
+
+    @classmethod
+    def create(cls, version, url, class_version, loss_function_path, log_path):
+        return cls(version=version, url=url, class_version=class_version, loss_function_path=loss_function_path,
+                   log_path=log_path)
 
     class Meta:
         db_table = 'weight_version'
@@ -134,6 +143,11 @@ class Notification(models.Model):
     message = models.CharField(max_length=2550)
     created_date = models.DateTimeField(default=datetime.now)
     is_read = models.BooleanField(default=False)
+    url = models.CharField(max_length=255, default=None)
+    is_delete = models.BooleanField(default=False)
+    is_success = models.BooleanField(default=False)
+    loss_function_path = models.CharField(max_length=255, default="")
+    log_path = models.CharField(max_length=255, default="")
 
     class Meta:
         db_table = 'notification'
