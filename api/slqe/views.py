@@ -284,8 +284,9 @@ class SlqeApi(APIView):
 
             limit = self.GET.get('limit')
             offset = self.GET.get('offset')
+            version_name = self.GET.get('version_name')
             offset, limit = parse_offset_limit(offset, limit)
-            version = ClassVersion.objects.all().order_by('-created_date')
+            version = ClassVersion.objects.filter(version__icontains=version_name).order_by('-created_date')
             total = len(version)
             version = version[offset:offset + limit]
             class_serializer = ClassSerializer(version, many=True)
@@ -384,8 +385,10 @@ class SlqeApi(APIView):
         if self.method == 'GET':
             limit = self.GET.get('limit')
             offset = self.GET.get('offset')
+            version_name = self.GET.get('version_name')
             offset, limit = parse_offset_limit(offset, limit)
-            versions = WeightVersion.objects.filter(class_version=class_id).order_by('-created_date')
+            versions = WeightVersion.objects.filter(class_version=class_id, version__icontains=version_name).order_by(
+                '-created_date')
             total = len(versions)
             versions = versions[offset:offset + limit]
             weight_serializer = WeightSerializer(versions, many=True)
