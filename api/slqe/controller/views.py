@@ -16,10 +16,11 @@ from processor import algorithm
 from rest_framework.decorators import api_view
 from rest_framework.parsers import *
 from rest_framework.views import *
-from slqe.jwt_utils import *
-from slqe.serializers import *
-from slqe.utils import parse_offset_limit
+from slqe.utils.jwt_utils import *
+from slqe.serializer.serializers import *
+from slqe.utils.utils import parse_offset_limit
 from pathlib import Path
+from slqe.service.user_service import *
 
 logger = logging.getLogger(__name__)
 
@@ -45,34 +46,19 @@ class SlqeApi(APIView):
             name = self.GET.get('name')
             limit = self.GET.get('limit')
             offset = self.GET.get('offset')
-            offset, limit = parse_offset_limit(offset, limit)
-            if name:
-                total_user = User.objects.filter(name__icontains=name, role=Role.customer_role()).count()
-                users = User.objects.filter(name__icontains=name, role=Role.customer_role())[offset:offset + limit]
-            else:
-                total_user = User.objects.filter(role=Role.customer_role()).count()
-                users = User.objects.filter(role=Role.customer_role())[offset:offset + limit]
+            total_user, users = get_users(name, limit, offset)
             user_serializer = UserSerializer(users, many=True)
             return JsonResponse({"total": total_user, "data": user_serializer.data}, safe=False)
         elif self.method == 'POST':
             user_data = JSONParser().parse(self)
             try:
-                user_firebase = auth.get_user(user_data['uid'])
-                users = User.objects.filter(uid=user_firebase.uid)
-                if users:
-                    user = users[0]
-                    if user.is_active:
-                        return JsonResponse({"user": UserSerializer(user).data, "token": user.token},
-                                            status=status.HTTP_200_OK, safe=False)
-                    else:
-                        return HttpResponseBadRequest("User inactive")
-                else:
-                    user = User.create(email=user_firebase.email, uid=user_firebase.uid, password=None,
-                                       phone=user_firebase.phone_number, avatar_url=user_firebase.photo_url,
-                                       name=user_firebase.display_name, role=Role.create(role_id=1, name="USER"))
-                    user.save()
+                uid = user_data['uid']
+                user, is_active = login(uid)
+                if is_active:
                     return JsonResponse({"user": UserSerializer(user).data, "token": user.token},
-                                        status=status.HTTP_201_CREATED, safe=False)
+                                        status=status.HTTP_200_OK, safe=False)
+                return JsonResponse({"user": UserSerializer(user).data, "token": user.token},
+                                    status=status.HTTP_201_CREATED, safe=False)
             except UserNotFoundError:
                 return HttpResponseBadRequest("User not found")
             except (ValueError, KeyError):
@@ -99,13 +85,16 @@ class SlqeApi(APIView):
                 payload = jwt.decode(token, settings.SECRET_KEY, algorithms='HS256')
                 user_access = User.objects.get(id=payload['id'], is_active=True)
 
-                user = User.objects.get(pk=user_id)
-                user_serializer = UserSerializer(user)
-
-                # only owner user can access resources
-                if user_access.role.name == "CUSTOMER":
-                    if user_access.id != user.id:
-                        return HttpResponse(status=status.HTTP_403_FORBIDDEN)
+                user, status_code = get_user(user_id)
+                if status_code is None:
+                    if user_access.role.name == "CUSTOMER":
+                        if user_access.id != user.id:
+                            return HttpResponse(status=status.HTTP_403_FORBIDDEN)
+                    user_serializer = UserSerializer(user)
+                elif status_code == 404:
+                    return HttpResponse(status=status.HTTP_404_NOT_FOUND)
+                elif status_code == 401:
+                    return HttpResponse(status=status.HTTP_401_UNAUTHORIZED)
             except User.DoesNotExist:
                 return HttpResponse(status=status.HTTP_404_NOT_FOUND)
             except DecodeError:
@@ -118,12 +107,14 @@ class SlqeApi(APIView):
                 flag_permission = is_permitted(token, role)
                 if not flag_permission:
                     return HttpResponse(status=status.HTTP_403_FORBIDDEN)
-
-                user = User.objects.get(pk=user_id)
                 request_data = JSONParser().parse(self)
-                user.is_active = request_data['is_active']
-                user.save()
-                return HttpResponse(status=status.HTTP_204_NO_CONTENT)
+                status_code = update_user(user_id, request_data)
+                if status_code is None:
+                    return HttpResponse(status=status.HTTP_204_NO_CONTENT)
+                elif status_code == 404:
+                    return HttpResponse(status=status.HTTP_404_NOT_FOUND)
+                elif status_code == 400:
+                    return HttpResponse(status=status.HTTP_400_BAD_REQUEST)
             except User.DoesNotExist:
                 return HttpResponse(status=status.HTTP_404_NOT_FOUND)
             except (ValidationError, KeyError):
@@ -136,12 +127,13 @@ class SlqeApi(APIView):
                 if not flag_permission:
                     return HttpResponse(status=status.HTTP_403_FORBIDDEN)
 
-                user = User.objects.get(pk=user_id)
+                status_code = delete_user(user_id)
+                if status_code is None:
+                    return HttpResponse(status=status.HTTP_204_NO_CONTENT)
+                elif status_code == 404:
+                    return HttpResponse(status=status.HTTP_404_NOT_FOUND)
             except User.DoesNotExist:
                 return HttpResponse(status=status.HTTP_404_NOT_FOUND)
-            user.is_active = False
-            user.save()
-            return HttpResponse(status=status.HTTP_204_NO_CONTENT)
 
     # ------- Image view -------------------
 

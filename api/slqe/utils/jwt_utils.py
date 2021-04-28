@@ -3,7 +3,7 @@ from datetime import datetime
 import jwt
 from django.conf import settings
 from jwt import DecodeError
-from slqe.models import User
+from slqe.model.models import User
 import time
 
 def is_verified(token):

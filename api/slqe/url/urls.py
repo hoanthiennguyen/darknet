@@ -1,5 +1,5 @@
 from django.conf.urls import url 
-from slqe.views import *
+from slqe.controller.views import *
  
 urlpatterns = [
     url(r'^users$', SlqeApi.user_list),
