@@ -22,6 +22,8 @@ from slqe.utils.utils import parse_offset_limit
 from pathlib import Path
 from slqe.service.user_service import *
 
+from slqe.service.image_service import *
+
 logger = logging.getLogger(__name__)
 
 
@@ -167,26 +169,28 @@ class SlqeApi(APIView):
             if not flag_permission:
                 return HttpResponse(status=status.HTTP_403_FORBIDDEN)
 
-            user = User.objects.get(id=user_id, is_active=True)
+            user, status_code = get_user_active(user_id)
+            if status_code == 404:
+                return JsonResponse({'message': 'The user does not exist'}, status=status.HTTP_404_NOT_FOUND)
         except User.DoesNotExist:
             return JsonResponse({'message': 'The user does not exist'}, status=status.HTTP_404_NOT_FOUND)
         try:
-            image = Image.objects.get(id=image_id)
+            image, status_code = get_image(image_id, user)
+            if status_code == 404:
+                return JsonResponse({'message': 'The image does not exist'}, status=status.HTTP_404_NOT_FOUND)
+            elif status_code == 403:
+                return HttpResponse(status=status.HTTP_403_FORBIDDEN)
         except Image.DoesNotExist:
             return JsonResponse({'message': 'The image does not exist'}, status=status.HTTP_404_NOT_FOUND)
-        if image.user.id != user.id:
-            return HttpResponse(status=status.HTTP_403_FORBIDDEN)
         if self.method == 'GET':
             image_serializer = ImageSerializer(image)
             return JsonResponse(image_serializer.data, safe=False)
         elif self.method == 'DELETE':
-            # config s3 amazon
-            s3 = boto3.resource('s3', aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-                                aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY)
-            bucket = s3.Bucket(settings.AWS_STORAGE_BUCKET_NAME)
-            obj = bucket.Object(image.url)
-            obj.delete()
-            image.delete()
+            status_code = delete_image(image_id, user)
+            if status_code == 404:
+                return JsonResponse({'message': 'The image does not exist'}, status=status.HTTP_404_NOT_FOUND)
+            elif status_code == 403:
+                return HttpResponse(status=status.HTTP_403_FORBIDDEN)
             return HttpResponse(status=status.HTTP_204_NO_CONTENT)
 
     @api_view(['GET', 'POST'])
@@ -208,7 +212,9 @@ class SlqeApi(APIView):
             payload = jwt.decode(token, settings.SECRET_KEY, algorithms='HS256')
             user_access = User.objects.get(id=payload['id'], is_active=True)
 
-            user = User.objects.get(id=user_id, is_active=True)
+            user, status_code = get_user_active(user_id)
+            if status_code == 404:
+                return JsonResponse({'message': 'The user does not exist'}, status=status.HTTP_404_NOT_FOUND)
 
             if user_access.id != user.id:
                 return HttpResponse(status=status.HTTP_403_FORBIDDEN)
@@ -217,45 +223,24 @@ class SlqeApi(APIView):
         except DecodeError:
             return HttpResponse(status=status.HTTP_401_UNAUTHORIZED)
         if self.method == 'GET':
-            total_image = Image.objects.filter(user=user_id).order_by('-date_time').count()
             limit = self.GET.get('limit')
             offset = self.GET.get('offset')
-            offset, limit = parse_offset_limit(offset, limit)
-            images = Image.objects.filter(user=user_id).order_by('-date_time')[offset:offset + limit]
+            total_image, images = get_images(user_id, limit, offset)
             image_serializer = ImageSerializer(images, many=True)
             return JsonResponse({"total": total_image, "data": image_serializer.data}, safe=False)
         elif self.method == 'POST':
             try:
                 file_obj = self.FILES['file']
-                image = PIL.Image.open(file_obj)
+                image_model, status_code = solve_equation(file_obj, user, self)
+                if status_code == 400:
+                    return JsonResponse({"message": "An application require a image to recognize"},
+                                        status=status.HTTP_400_BAD_REQUEST)
+
+                image_serializer = ImageSerializer(image_model)
+                return JsonResponse(image_serializer.data, status=status.HTTP_201_CREATED)
             except (MultiValueDictKeyError, UnidentifiedImageError):
                 return JsonResponse({"message": "An application require a image to recognize"},
                                     status=status.HTTP_400_BAD_REQUEST)
-            now = datetime.now()
-            url = ""
-            parsed_array = asarray(image)
-            parsed_array = cv2.cvtColor(parsed_array, cv2.COLOR_RGB2BGR)
-            valid, message, expression, latex, roots = algorithm.process(parsed_array)
-
-            if self.POST and self.POST['save'] and self.POST['save'] == '1':
-                filename = file_obj.name
-                file_obj.seek(0, 0)
-                s3 = boto3.resource('s3', aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-                                    aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY)
-                bucket = s3.Bucket(settings.AWS_STORAGE_BUCKET_NAME)
-                bucket.put_object(Key=filename + "_" + str(now), Body=file_obj)
-                url = "https://s3-%s.amazonaws.com/%s/%s" % (
-                    settings.AWS_LOCATION, settings.AWS_STORAGE_BUCKET_NAME, filename)
-                image_model = Image.create(user=user, url=url, date_time=now, expression=expression, latex=latex,
-                                           roots=roots, success=valid, message=message)
-                image_model.save()
-                image_serializer = ImageSerializer(image_model)
-            else:
-                image_model = Image.create(user=user, url=url, date_time=now, expression=expression, latex=latex,
-                                           roots=roots, success=valid, message=message)
-                image_serializer = ImageSerializer(image_model)
-
-            return JsonResponse(image_serializer.data, status=status.HTTP_201_CREATED)
 
     # class version
     @api_view(['GET', 'POST'])

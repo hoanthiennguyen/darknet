@@ -36,7 +36,7 @@ def get_users(name, limit, offset):
     return total_user, users
 
 
-def get_user(user_id, ):
+def get_user(user_id):
     status_code = None
     try:
         user = User.objects.get(pk=user_id)
@@ -103,6 +103,17 @@ def login(uid):
         return HttpResponseBadRequest("Error when retrieve user info: invalid uid")
     except FirebaseError:
         return HttpResponseServerError("Cannot retrieve user info from firebase")
+
+
+def get_user_active(user_id):
+    status_code = None
+    try:
+        user = User.objects.get(pk=user_id, is_active=True)
+        # only owner user can access resources
+        return user, status_code
+    except User.DoesNotExist:
+        status_code = 404
+        return None, status_code
 
 
 class UserService:
