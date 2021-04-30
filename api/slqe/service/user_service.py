@@ -37,46 +37,20 @@ def get_users(name, limit, offset):
 
 
 def get_user(user_id):
-    status_code = None
-    try:
-        user = User.objects.get(pk=user_id)
-        # only owner user can access resources
-        return user, status_code
-    except User.DoesNotExist:
-        status_code = 404
-        return None, status_code
-    except DecodeError:
-        status_code = 401
-        return None, status_code
+    return User.objects.get(pk=user_id)
 
 
 def update_user(user_id, request_data):
-    status_code = None
-    try:
-        # check authorization
-        user = User.objects.get(pk=user_id)
-        user.is_active = request_data['is_active']
-        user.save()
-        return status_code
-    except User.DoesNotExist:
-        status_code = 404
-        return status_code
-    except (ValidationError, KeyError):
-        status_code = 400
-        return status_code
+    # check authorization
+    user = User.objects.get(pk=user_id)
+    user.is_active = request_data['is_active']
+    user.save()
 
 
 def delete_user(user_id):
-    status_code = None
-    try:
-        # check authorization
-        user = User.objects.get(pk=user_id)
-    except User.DoesNotExist:
-        status_code = 404
-        return status_code
+    user = User.objects.get(pk=user_id)
     user.is_active = False
     user.save()
-    return status_code
 
 
 def login(uid):
@@ -106,14 +80,9 @@ def login(uid):
 
 
 def get_user_active(user_id):
-    status_code = None
-    try:
-        user = User.objects.get(pk=user_id, is_active=True)
-        # only owner user can access resources
-        return user, status_code
-    except User.DoesNotExist:
-        status_code = 404
-        return None, status_code
+    user = User.objects.get(pk=user_id, is_active=True)
+    return user
+
 
 
 class UserService:

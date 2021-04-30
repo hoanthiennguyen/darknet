@@ -24,37 +24,23 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 
-def get_image(image_id, user):
-    status_code = 200
-    try:
-        image = Image.objects.get(id=image_id)
-    except Image.DoesNotExist:
-        status_code = 404
-        return None, status_code
-    if image.user.id != user.id:
-        status_code = 403
-        return None, status_code
-    return image, status_code
+def get_image(image_id):
+    image = Image.objects.get(id=image_id)
+    return image
 
 
-def delete_image(image_id, user):
-    status_code = 204
-    try:
-        image = Image.objects.get(id=image_id)
-    except Image.DoesNotExist:
-        status_code = 404
-        return status_code
-    if image.user.id != user.id:
-        status_code = 403
-        return status_code
-        # config s3 amazon
+def delete_image(image):
+    # config s3 amazon
     s3 = boto3.resource('s3', aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
                         aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY)
     bucket = s3.Bucket(settings.AWS_STORAGE_BUCKET_NAME)
     obj = bucket.Object(image.url)
     obj.delete()
     image.delete()
-    return status_code
+
+
+def find_image(image_id):
+    return Image.objects.get(id=image_id)
 
 
 def get_images(user_id, limit, offset):
@@ -65,12 +51,7 @@ def get_images(user_id, limit, offset):
 
 
 def solve_equation(file_obj, user, self):
-    status_code = 201
-    try:
-        image = PIL.Image.open(file_obj)
-    except (MultiValueDictKeyError, UnidentifiedImageError):
-        status_code = 400
-        return None, status_code
+    image = PIL.Image.open(file_obj)
     now = datetime.now()
     url = ""
     parsed_array = asarray(image)
@@ -93,7 +74,7 @@ def solve_equation(file_obj, user, self):
         image_model = Image.create(user=user, url=url, date_time=now, expression=expression, latex=latex,
                                    roots=roots, success=valid, message=message)
 
-    return image_model, status_code
+    return image_model
 
 
 class ImageService:
