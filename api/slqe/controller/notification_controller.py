@@ -6,6 +6,7 @@ from slqe.utils.jwt_utils import *
 from slqe.serializer.serializers import *
 from slqe.utils.utils import parse_offset_limit
 from slqe.service.notification_service import NotificationService
+from slqe.service.user_service import UserService
 from django.http.response import *
 
 logger = logging.getLogger(__name__)
@@ -31,9 +32,10 @@ class NotificationController(APIView):
             return HttpResponse(status=status.HTTP_403_FORBIDDEN)
         try:
             payload = jwt.decode(token, settings.SECRET_KEY, algorithms='HS256')
-            user_access = User.objects.get(id=payload['id'], is_active=True)
+            user_service = UserService()
+            user_access = user_service.get_user_active(payload.get('id'))
 
-            user = User.objects.get(pk=user_id)
+            user = user_service.get_user(user_id)
 
             # only owner user can access resources
             if user_access.id != user.id:
@@ -52,7 +54,7 @@ class NotificationController(APIView):
             return JsonResponse({"total": total, "data": notification_serializer.data}, safe=False)
         elif self.method == 'POST':
             notification = JSONParser().parse(self)
-            if notification["user"] != user.id:
+            if notification.get('user') != user.id:
                 return HttpResponse(status=status.HTTP_403_FORBIDDEN)
             notification_serializer = NotificationSerializer(data=notification)
 
@@ -78,9 +80,10 @@ class NotificationController(APIView):
             return HttpResponse(status=status.HTTP_403_FORBIDDEN)
         try:
             payload = jwt.decode(token, settings.SECRET_KEY, algorithms='HS256')
-            user_access = User.objects.get(id=payload['id'], is_active=True)
+            user_service = UserService()
+            user_access = user_service.get_user_active(payload['id'])
 
-            user = User.objects.get(pk=user_id)
+            user = user_service.get_user(user_id)
 
             # only owner user can access resources
             if user_access.id != user.id:
@@ -111,9 +114,10 @@ class NotificationController(APIView):
             return HttpResponse(status=status.HTTP_403_FORBIDDEN)
         try:
             payload = jwt.decode(token, settings.SECRET_KEY, algorithms='HS256')
-            user_access = User.objects.get(id=payload['id'], is_active=True)
+            user_service = UserService()
+            user_access = user_service.get_user_active(payload['id'])
 
-            user = User.objects.get(pk=user_id)
+            user = user_service.get_user(user_id)
 
             # only owner user can access resources
             if user_access.id != user.id:
@@ -134,8 +138,8 @@ class NotificationController(APIView):
         elif self.method == 'PUT':
             try:
                 request_data = json.loads(self.body)
-                is_read = request_data["is_read"]
-                is_success = request_data["is_success"]
+                is_read = request_data.get('is_read')
+                is_success = request_data.get('is_success')
                 notification_service = NotificationService()
                 notification = notification_service.get_notification_by_id(notification_id, user_id)
                 is_save = False
@@ -169,9 +173,10 @@ class NotificationController(APIView):
             return HttpResponse(status=status.HTTP_403_FORBIDDEN)
         try:
             payload = jwt.decode(token, settings.SECRET_KEY, algorithms='HS256')
-            user_access = User.objects.get(id=payload['id'], is_active=True)
+            user_service = UserService()
+            user_access = user_service.get_user_active(payload['id'])
 
-            user = User.objects.get(pk=user_id)
+            user = user_service.get_user(user_id)
 
             # only owner user can access resources
             if user_access.id != user.id:

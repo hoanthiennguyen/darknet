@@ -1,25 +1,15 @@
-import PIL.Image
-import boto3
-import cv2
-from PIL import UnidentifiedImageError
 from django.core.exceptions import ValidationError
 from django.http.response import *
-from django.utils.datastructures import MultiValueDictKeyError
-from firebase_admin import auth
 from firebase_admin.auth import UserNotFoundError
 from firebase_admin.exceptions import FirebaseError
-from numpy import asarray
-# from processor import algorithm
 from rest_framework.decorators import api_view
 from rest_framework.parsers import *
 from rest_framework.views import *
-from slqe.utils.jwt_utils import *
 from slqe.serializer.serializers import *
-from slqe.utils.utils import parse_offset_limit
-from pathlib import Path
-from slqe.service.user_service import *
-from slqe.service.image_service import *
 from slqe.service.class_version_service import *
+from slqe.service.image_service import *
+from slqe.service.user_service import *
+from slqe.utils.jwt_utils import *
 
 logger = logging.getLogger(__name__)
 
@@ -45,14 +35,16 @@ class UserController(APIView):
             name = self.GET.get('name')
             limit = self.GET.get('limit')
             offset = self.GET.get('offset')
-            total_user, users = UserService.get_users(name, limit, offset)
+            service = UserService()
+            total_user, users = service.get_users(name, limit, offset)
             user_serializer = UserSerializer(users, many=True)
             return JsonResponse({"total": total_user, "data": user_serializer.data}, safe=False)
         elif self.method == 'POST':
             user_data = JSONParser().parse(self)
             try:
-                uid = user_data['uid']
-                user, is_active = UserService.login(uid)
+                uid = user_data.get('uid')
+                service = UserService()
+                user, is_active = service.login(uid)
                 if is_active:
                     return JsonResponse({"user": UserSerializer(user).data, "token": user.token},
                                         status=status.HTTP_200_OK, safe=False)
@@ -82,9 +74,9 @@ class UserController(APIView):
                     return HttpResponse(status=status.HTTP_403_FORBIDDEN)
 
                 payload = jwt.decode(token, settings.SECRET_KEY, algorithms='HS256')
-                user_access = User.objects.get(id=payload['id'], is_active=True)
-
-                user = UserService.get_user(user_id)
+                user_access = User.objects.get(id=payload.get('id'), is_active=True)
+                service = UserService()
+                user = service.get_user(user_id)
                 if user_access.role.name == "CUSTOMER":
                     if user_access.id != user.id:
                         return HttpResponse(status=status.HTTP_403_FORBIDDEN)
@@ -103,7 +95,8 @@ class UserController(APIView):
                 if not flag_permission:
                     return HttpResponse(status=status.HTTP_403_FORBIDDEN)
                 request_data = JSONParser().parse(self)
-                UserService.update_user(user_id, request_data)
+                service = UserService()
+                service.update_user(user_id, request_data)
                 return HttpResponse(status=status.HTTP_204_NO_CONTENT)
             except User.DoesNotExist:
                 return HttpResponse(status=status.HTTP_404_NOT_FOUND)
@@ -116,7 +109,8 @@ class UserController(APIView):
                 flag_permission = is_permitted(token, role)
                 if not flag_permission:
                     return HttpResponse(status=status.HTTP_403_FORBIDDEN)
-                UserService.delete_user(user_id)
+                service = UserService()
+                service.delete_user(user_id)
                 return HttpResponse(status=status.HTTP_204_NO_CONTENT)
             except User.DoesNotExist:
                 return HttpResponse(status=status.HTTP_404_NOT_FOUND)

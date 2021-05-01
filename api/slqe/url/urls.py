@@ -1,9 +1,9 @@
-from django.conf.urls import url 
-from slqe.controller.views import *
+from django.conf.urls import url
 from slqe.controller.user_controller import UserController
 from slqe.controller.image_controller import ImageController
 from slqe.controller.class_version_controller import ClassVersionController
 from slqe.controller.notification_controller import NotificationController
+from slqe.controller.weight_version_controller import WeightVersionController
 
 urlpatterns = [
     url(r'^users$', UserController.user_list),
@@ -14,9 +14,9 @@ urlpatterns = [
     url(r'^versions$', ClassVersionController.class_list),
     url(r'^versions/(\w+)$', ClassVersionController.class_detail),
     url(r'^versions/get-last-version', ClassVersionController.class_get_last_version),
-    url(r'^versions/(\w+)/weights$', SlqeApi.weight_list),
-    url(r'^versions/(\w+)/weights/(\w+)$', SlqeApi.weight_detail),
-    url(r'^versions/(\w+)/weights/weight-get-last-version$', SlqeApi.weight_get_last_version),
+    url(r'^versions/(\w+)/weights$', WeightVersionController.weight_list),
+    url(r'^versions/(\w+)/weights/(\w+)$', WeightVersionController.weight_detail),
+    url(r'^versions/(\w+)/weights/weight-get-last-version$', WeightVersionController.weight_get_last_version),
     url(r'^users/(\w+)/notifications$', NotificationController.notification_list),
     url(r'^users/(\w+)/notifications/delete-all-read$', NotificationController.notification_delete_all_read),
     url(r'^users/(\w+)/notifications/(\w+)$', NotificationController.notification_detail),

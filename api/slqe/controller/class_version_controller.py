@@ -7,7 +7,7 @@ from slqe.service.user_service import *
 
 from slqe.service.image_service import *
 
-from slqe.service.class_version_service import *
+from slqe.service.class_version_service import ClassVersionService
 
 logger = logging.getLogger(__name__)
 
@@ -38,14 +38,17 @@ class ClassVersionController(APIView):
             if version_name is None:
                 return JsonResponse({"message": "Version name can not null"},
                                     status=status.HTTP_400_BAD_REQUEST)
-            total, version = get_classes(limit, offset, version_name)
+
+            class_version_service = ClassVersionService()
+            total, version = class_version_service.get_classes(limit, offset, version_name)
             class_serializer = ClassSerializer(version, many=True)
             return JsonResponse({"total": total, "data": class_serializer.data}, safe=False)
         elif self.method == 'POST':
             version_data = JSONParser().parse(self)
             class_serializer = ClassSerializer(data=version_data)
             if class_serializer.is_valid():
-                class_serializer = create_class(class_serializer)
+                class_version_service = ClassVersionService()
+                class_serializer = class_version_service.create_class(class_serializer)
                 return JsonResponse(class_serializer.data, status=status.HTTP_201_CREATED, safe=False)
             return JsonResponse(class_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -64,17 +67,19 @@ class ClassVersionController(APIView):
             return HttpResponse(status=status.HTTP_403_FORBIDDEN)
         if self.method == "GET":
             try:
-                version = get_class_by_id(class_id)
+                class_version_service = ClassVersionService()
+                version = class_version_service.get_class_by_id(class_id)
                 class_serializer = ClassSerializer(version)
                 return JsonResponse(class_serializer.data, safe=False)
             except ClassVersion.DoesNotExist:
                 return JsonResponse({'message': 'The class version does not exist'}, status=status.HTTP_404_NOT_FOUND)
         elif self.method == 'PUT':
             try:
-                version = get_class_by_id(class_id)
+                class_version_service = ClassVersionService()
+                version = class_version_service.get_class_by_id(class_id)
                 request_data = json.loads(self.body)
-                commit_hash = request_data['commit_hash']
-                description = request_data['description']
+                commit_hash = request_data.get('commit_hash')
+                description = request_data.get('description')
                 is_save = False
                 if commit_hash is not None and len(commit_hash) > 0:
                     version.commit_hash = commit_hash
@@ -104,7 +109,8 @@ class ClassVersionController(APIView):
             return HttpResponse(status=status.HTTP_403_FORBIDDEN)
 
         if self.method == 'GET':
-            version = class_get_last_version()
+            class_version_service = ClassVersionService()
+            version = class_version_service.class_get_last_version()
             if version:
                 class_serializer = ClassSerializer(version)
                 return JsonResponse(class_serializer.data, safe=False)

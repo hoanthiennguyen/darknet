@@ -1,20 +1,15 @@
 from django.utils.datastructures import MultiValueDictKeyError
-from firebase_admin import auth
-from firebase_admin.auth import UserNotFoundError
-from firebase_admin.exceptions import FirebaseError
 from numpy import asarray
-# from processor import algorithm
+from processor import algorithm
 from rest_framework.decorators import api_view
 from rest_framework.parsers import *
 from rest_framework.views import *
-from slqe.utils.jwt_utils import *
 from slqe.serializer.serializers import *
-from slqe.utils.utils import parse_offset_limit
-from pathlib import Path
-from slqe.service.user_service import *
-from slqe.service.image_service import *
 from slqe.service.class_version_service import *
-from api.slqe.service.image_service import ImageService
+from slqe.service.image_service import *
+from slqe.service.image_service import ImageService
+from slqe.service.user_service import *
+from slqe.utils.jwt_utils import *
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +22,7 @@ class ImageController(APIView):
     @api_view(['POST'])
     def process_image(self):
         print(os.getcwd())
-        file_obj = self.FILES['file']
+        file_obj = self.FILES.get('file')
         image = PIL.Image.open(file_obj)
 
         parsed_array = asarray(image)
@@ -53,11 +48,13 @@ class ImageController(APIView):
             flag_permission = is_permitted(token, role)
             if not flag_permission:
                 return HttpResponse(status=status.HTTP_403_FORBIDDEN)
-            user = UserService.get_user_active(user_id)
+            service = UserService()
+            user = service.get_user_active(user_id)
         except User.DoesNotExist:
             return JsonResponse({'message': 'The user does not exist'}, status=status.HTTP_404_NOT_FOUND)
         try:
-            image = ImageService.get_image(image_id)
+            image_service = ImageService()
+            image = image_service.get_image(image_id)
             if image.user.id != user.id:
                 return HttpResponse(status=status.HTTP_403_FORBIDDEN)
         except Image.DoesNotExist:
@@ -67,10 +64,11 @@ class ImageController(APIView):
             return JsonResponse(image_serializer.data, safe=False)
         elif self.method == 'DELETE':
             try:
-                image = ImageService.find_image(image_id)
+                image_service = ImageService()
+                image = image_service.find_image(image_id)
                 if image.user.id != user.id:
                     return HttpResponse(status=status.HTTP_403_FORBIDDEN)
-                ImageService.delete_image(image)
+                image_service.delete_image(image)
                 return HttpResponse(status=status.HTTP_204_NO_CONTENT)
             except Image.DoesNotExist:
                 return JsonResponse({'message': 'The image does not exist'}, status=status.HTTP_404_NOT_FOUND)
@@ -93,8 +91,8 @@ class ImageController(APIView):
 
             payload = jwt.decode(token, settings.SECRET_KEY, algorithms='HS256')
             user_access = User.objects.get(id=payload['id'], is_active=True)
-
-            user = UserService.get_user_active(user_id)
+            service = UserService()
+            user = service.get_user_active(user_id)
             if user_access.id != user.id:
                 return HttpResponse(status=status.HTTP_403_FORBIDDEN)
         except User.DoesNotExist:
@@ -104,13 +102,18 @@ class ImageController(APIView):
         if self.method == 'GET':
             limit = self.GET.get('limit')
             offset = self.GET.get('offset')
-            total_image, images = ImageService.get_images(user_id, limit, offset)
+            image_service = ImageService()
+            total_image, images = image_service.get_images(user_id, limit, offset)
             image_serializer = ImageSerializer(images, many=True)
             return JsonResponse({"total": total_image, "data": image_serializer.data}, safe=False)
         elif self.method == 'POST':
             try:
-                file_obj = self.FILES['file']
-                image_model = ImageService.solve_equation(file_obj, user, self)
+                file_obj = self.FILES.get('file')
+                save = "0"
+                if self.POST and self.POST.get('save') and self.POST.get('save') == '1':
+                    save = "1"
+                image_service = ImageService()
+                image_model = image_service.solve_equation(save, file_obj, user)
                 image_serializer = ImageSerializer(image_model)
                 return JsonResponse(image_serializer.data, status=status.HTTP_201_CREATED)
             except (MultiValueDictKeyError, UnidentifiedImageError):
