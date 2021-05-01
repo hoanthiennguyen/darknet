@@ -83,8 +83,10 @@ class ClassVersionController(APIView):
                 is_save = False
                 if commit_hash is not None and len(commit_hash) > 0:
                     version.commit_hash = commit_hash
+                    is_save = True
                 if description is not None and len(description) > 0:
                     version.description = description
+                    is_save = True
 
                 if is_save:
                     version.save()
