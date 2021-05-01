@@ -1,119 +1,185 @@
-from django.utils.datastructures import MultiValueDictKeyError
-from firebase_admin import auth
-from firebase_admin.auth import UserNotFoundError
-from firebase_admin.exceptions import FirebaseError
-from numpy import asarray
-from processor import algorithm
+import logging
 from rest_framework.decorators import api_view
 from rest_framework.parsers import *
 from rest_framework.views import *
 from slqe.utils.jwt_utils import *
 from slqe.serializer.serializers import *
 from slqe.utils.utils import parse_offset_limit
-from pathlib import Path
-from slqe.service.user_service import *
-
-from slqe.service.image_service import *
-
-from slqe.service.class_version_service import *
+from slqe.service.notification_service import NotificationService
+from django.http.response import *
 
 logger = logging.getLogger(__name__)
 
 
-class ClassVersionController(APIView):
+class NotificationController(APIView):
     parser_classes = (MultiPartParser, FormParser)
 
-    # class version
-    @api_view(['GET', 'POST'])
-    def class_list(self):
-        if self.method == 'GET':
-            # get token from header
-            token = self.META.get('HTTP_AUTHORIZATION')
-            # check authentication
-            flag_verify = is_verified(token=token)
-            if not flag_verify:
-                return HttpResponse(status=status.HTTP_401_UNAUTHORIZED)
+    # Notification
+    @api_view(['GET', 'POST', 'DELETE'])
+    def notification_list(self, user_id):
+        # get token from header
+        token = self.META.get('HTTP_AUTHORIZATION')
+        # check authentication
+        flag_verify = is_verified(token=token)
+        if not flag_verify:
+            return HttpResponse(status=status.HTTP_401_UNAUTHORIZED)
 
-            # check authorization
-            role = ("ADMIN")
-            flag_permission = is_permitted(token, role)
-            if not flag_permission:
+        # check authorization
+        role = ("ADMIN", "CUSTOMER")
+        flag_permission = is_permitted(token, role)
+        if not flag_permission:
+            return HttpResponse(status=status.HTTP_403_FORBIDDEN)
+        try:
+            payload = jwt.decode(token, settings.SECRET_KEY, algorithms='HS256')
+            user_access = User.objects.get(id=payload['id'], is_active=True)
+
+            user = User.objects.get(pk=user_id)
+
+            # only owner user can access resources
+            if user_access.id != user.id:
                 return HttpResponse(status=status.HTTP_403_FORBIDDEN)
-
+        except User.DoesNotExist:
+            return HttpResponse(status=status.HTTP_404_NOT_FOUND)
+        except DecodeError:
+            return HttpResponse(status=status.HTTP_401_UNAUTHORIZED)
+        if self.method == 'GET':
             limit = self.GET.get('limit')
             offset = self.GET.get('offset')
-            version_name = self.GET.get('version_name')
-            if version_name is None:
-                return JsonResponse({"message": "Version name can not null"},
-                                    status=status.HTTP_400_BAD_REQUEST)
-            total, version = get_classes(limit, offset, version_name)
-            class_serializer = ClassSerializer(version, many=True)
-            return JsonResponse({"total": total, "data": class_serializer.data}, safe=False)
+            offset, limit = parse_offset_limit(offset, limit)
+            notification_service = NotificationService()
+            total, notifications = notification_service.get_notifications(limit, offset, user_id)
+            notification_serializer = NotificationSerializer(notifications, many=True)
+            return JsonResponse({"total": total, "data": notification_serializer.data}, safe=False)
         elif self.method == 'POST':
-            version_data = JSONParser().parse(self)
-            class_serializer = ClassSerializer(data=version_data)
-            if class_serializer.is_valid():
-                class_serializer = create_class(class_serializer)
-                return JsonResponse(class_serializer.data, status=status.HTTP_201_CREATED, safe=False)
-            return JsonResponse(class_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            notification = JSONParser().parse(self)
+            if notification["user"] != user.id:
+                return HttpResponse(status=status.HTTP_403_FORBIDDEN)
+            notification_serializer = NotificationSerializer(data=notification)
+
+            if notification_serializer.is_valid():
+                notification_service = NotificationService()
+                notification_service.create_notification(notification_serializer)
+                return HttpResponse(status=status.HTTP_201_CREATED)
+            return HttpResponse(notification_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    @api_view(['DELETE'])
+    def notification_delete_all_read(self, user_id):
+        # get token from header
+        token = self.META.get('HTTP_AUTHORIZATION')
+        # check authentication
+        flag_verify = is_verified(token=token)
+        if not flag_verify:
+            return HttpResponse(status=status.HTTP_401_UNAUTHORIZED)
+
+        # check authorization
+        role = ("ADMIN", "CUSTOMER")
+        flag_permission = is_permitted(token, role)
+        if not flag_permission:
+            return HttpResponse(status=status.HTTP_403_FORBIDDEN)
+        try:
+            payload = jwt.decode(token, settings.SECRET_KEY, algorithms='HS256')
+            user_access = User.objects.get(id=payload['id'], is_active=True)
+
+            user = User.objects.get(pk=user_id)
+
+            # only owner user can access resources
+            if user_access.id != user.id:
+                return HttpResponse(status=status.HTTP_403_FORBIDDEN)
+        except User.DoesNotExist:
+            return HttpResponse(status=status.HTTP_404_NOT_FOUND)
+        except DecodeError:
+            return HttpResponse(status=status.HTTP_401_UNAUTHORIZED)
+
+        if self.method == 'DELETE':
+            notification_service = NotificationService()
+            notification_service.delete_all_read_notification(user_id)
+        return HttpResponse(status=status.HTTP_204_NO_CONTENT)
 
     @api_view(['GET', 'PUT'])
-    def class_detail(self, class_id):
+    def notification_detail(self, user_id, notification_id):
         # get token from header
         token = self.META.get('HTTP_AUTHORIZATION')
         # check authentication
         flag_verify = is_verified(token=token)
         if not flag_verify:
             return HttpResponse(status=status.HTTP_401_UNAUTHORIZED)
+
         # check authorization
-        role = ("ADMIN")
+        role = ("ADMIN", "CUSTOMER")
         flag_permission = is_permitted(token, role)
         if not flag_permission:
             return HttpResponse(status=status.HTTP_403_FORBIDDEN)
-        if self.method == "GET":
+        try:
+            payload = jwt.decode(token, settings.SECRET_KEY, algorithms='HS256')
+            user_access = User.objects.get(id=payload['id'], is_active=True)
+
+            user = User.objects.get(pk=user_id)
+
+            # only owner user can access resources
+            if user_access.id != user.id:
+                return HttpResponse(status=status.HTTP_403_FORBIDDEN)
+        except User.DoesNotExist:
+            return HttpResponse(status=status.HTTP_404_NOT_FOUND)
+        except DecodeError:
+            return HttpResponse(status=status.HTTP_401_UNAUTHORIZED)
+        if self.method == 'GET':
             try:
-                version = get_class_by_id(class_id)
-                class_serializer = ClassSerializer(version)
-                return JsonResponse(class_serializer.data, safe=False)
-            except ClassVersion.DoesNotExist:
-                return JsonResponse({'message': 'The class version does not exist'}, status=status.HTTP_404_NOT_FOUND)
+                notification_service = NotificationService()
+                notification = notification_service.get_notification_by_id(notification_id, user_id)
+                notification_serializer = NotificationSerializer(notification)
+
+                return JsonResponse(notification_serializer.data)
+            except Notification.DoesNotExist:
+                return HttpResponse(status=status.HTTP_404_NOT_FOUND)
         elif self.method == 'PUT':
             try:
-                version = get_class_by_id(class_id)
                 request_data = json.loads(self.body)
-                commit_hash = request_data['commit_hash']
-                description = request_data['description']
+                is_read = request_data["is_read"]
+                is_success = request_data["is_success"]
+                notification_service = NotificationService()
+                notification = notification_service.get_notification_by_id(notification_id, user_id)
                 is_save = False
-                if commit_hash is not None and len(commit_hash) > 0:
-                    version.commit_hash = commit_hash
-                if description is not None and len(description) > 0:
-                    version.description = description
+                if is_read:
+                    notification.is_read = True
+                    is_save = True
+                if is_success is False:
+                    notification.is_success = False
+                    is_save = True
 
                 if is_save:
-                    version.save()
+                    notification_service.update_notification(notification)
+
                 return HttpResponse(status=status.HTTP_204_NO_CONTENT)
-            except User.DoesNotExist:
+            except Notification.DoesNotExist:
                 return HttpResponse(status=status.HTTP_404_NOT_FOUND)
-            except (ValidationError, KeyError):
-                return HttpResponseBadRequest()
 
     @api_view(['GET'])
-    def class_get_last_version(self):
+    def notification_count_unread(self, user_id):
         # get token from header
         token = self.META.get('HTTP_AUTHORIZATION')
         # check authentication
         flag_verify = is_verified(token=token)
         if not flag_verify:
             return HttpResponse(status=status.HTTP_401_UNAUTHORIZED)
+
         # check authorization
-        role = ("ADMIN")
+        role = ("ADMIN", "CUSTOMER")
         flag_permission = is_permitted(token, role)
         if not flag_permission:
             return HttpResponse(status=status.HTTP_403_FORBIDDEN)
+        try:
+            payload = jwt.decode(token, settings.SECRET_KEY, algorithms='HS256')
+            user_access = User.objects.get(id=payload['id'], is_active=True)
 
+            user = User.objects.get(pk=user_id)
+
+            # only owner user can access resources
+            if user_access.id != user.id:
+                return HttpResponse(status=status.HTTP_403_FORBIDDEN)
+
+        except DecodeError:
+            return HttpResponse(status=status.HTTP_401_UNAUTHORIZED)
         if self.method == 'GET':
-            version = class_get_last_version()
-            if version:
-                class_serializer = ClassSerializer(version)
-                return JsonResponse(class_serializer.data, safe=False)
-            return HttpResponse(status=status.HTTP_200_OK)
+            notification_service = NotificationService()
+            total = notification_service.count_unread(user_id)
+            return JsonResponse({"total": total}, safe=False)

@@ -12,7 +12,7 @@ from firebase_admin import auth
 from firebase_admin.auth import UserNotFoundError
 from firebase_admin.exceptions import FirebaseError
 from numpy import asarray
-from processor import algorithm
+# from processor import algorithm
 from rest_framework.decorators import api_view
 from rest_framework.parsers import *
 from rest_framework.views import *
