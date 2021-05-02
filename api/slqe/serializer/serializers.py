@@ -1,7 +1,7 @@
 from rest_framework import serializers
-from slqe.models import *
+from slqe.model.models import *
 
-from slqe.models import ClassVersion
+from slqe.model.models import ClassVersion
 
 
 class UserSerializer(serializers.ModelSerializer):
