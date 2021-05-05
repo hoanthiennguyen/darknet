@@ -64,7 +64,7 @@ class User(models.Model):
         Generates a JSON Web Token that stores this user's ID and has an expiry
         date set to 60 days into the future.
         """
-        dt = datetime.now() + timedelta(days=360)
+        dt = datetime.now() + timedelta(days=15)
         expired = time.mktime(dt.timetuple())
         token = jwt.encode({
             'id': self.id,
